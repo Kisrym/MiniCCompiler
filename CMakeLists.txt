@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 4.1)
+project(MiniCCompiler)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
@@ -17,6 +18,5 @@ target_include_directories(main PRIVATE
     ast
 )
 
-target_compile_options(main PRIVATE -Wall -fsanitize=address)
-target_link_options(main PRIVATE -fsanitize=address)
+target_compile_options(main PRIVATE -Wall)
 

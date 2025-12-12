@@ -33,6 +33,9 @@ enum TokenType {
     PAREN2,
     BRACES1,
     BRACES2,
+    COMMA,
+    FOR,
+    WHILE,
     UNKNOWN
 };
 
@@ -75,6 +78,14 @@ struct Token {
 
         if (!strcmp(type, "else")) {
             return ELSE;
+        }
+
+        if (!strcmp(type, "for")) {
+            return FOR;
+        }
+
+        if (!strcmp(type, "while")) {
+            return WHILE;
         }
 
         if (!strcmp(type, "+")) {
@@ -141,6 +152,10 @@ struct Token {
             return BRACES2;
         }
 
+        if (!strcmp(type, ",")) {
+            return COMMA;
+        }
+
         else { // sera considerado uma variavel
             return ID;
         }
@@ -193,6 +208,10 @@ struct Token {
 
         if (type == '}') {
             return BRACES2;
+        }
+
+        if (type == ',') {
+            return COMMA;
         }
 
         else {

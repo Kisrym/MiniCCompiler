@@ -1,7 +1,10 @@
 #include "parser.hpp"
 
-Token &Parser::current() {
-    return actual_instruction[pos];
+std::optional<Token> Parser::current() {
+    if (pos < actual_instruction.size())
+        return actual_instruction[pos];
+
+    return std::nullopt;
 }
 
 Token Parser::consume() {
@@ -90,25 +93,46 @@ Stmt *Parser::parseStatement() {
         consume(); // )
         consume(); // {
 
-        std::vector<Stmt *> statements;
-        while (pos <= actual_instruction.size() && current().type != BRACES2) {
-            statements.push_back(parseStatement());
+        std::vector<Stmt *> thenBranches;
+        std::vector<Stmt *> elseBranches;
+
+        while (current().has_value() && current()->type != BRACES2) {
+            thenBranches.push_back(parseStatement());
             consume(); // ;
         }
 
-        return new IfStmt(condition, statements);
+        consume(); // }
+
+        if (current().has_value() && current()->type == ELSE) {
+            consume(); // ELSE
+            consume(); // {
+
+            while (current().has_value() && current()->type != BRACES2) {
+                elseBranches.push_back(parseStatement());
+                consume(); // ;
+            }
+        }
+
+        return new IfStmt(condition, thenBranches, elseBranches);
     }
 
-    if (first.type == ELSE) {
+    if (first.type == FOR) {
+        consume(); // (
+        Stmt *definition = parseStatement();
+        consume(); // ,
+        Expr *condition = parseExpression();
+        consume(); // ,
+        auto *increment =  dynamic_cast<AssignStmt *>(parseStatement());
+        consume(); // )
         consume(); // {
 
         std::vector<Stmt *> statements;
-        while (pos < actual_instruction.size() && current().type != BRACES2) {
+        while (current().has_value() && current()->type != BRACES2) {
             statements.push_back(parseStatement());
             consume(); // ;
         }
 
-        return new ElseStmt(statements);
+        return new ForStmt(definition, condition, increment, statements);
     }
 
     consume();

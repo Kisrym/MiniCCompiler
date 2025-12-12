@@ -17,22 +17,25 @@ Lexer::Lexer(const std::string &code) {
     }*/
 
     std::string bff;
-    bool is_block = false;
+    int blocks = 0;
 
     for (const auto &c : code) {
         if (c == '{') {
-            is_block = true;
+            blocks++;
         }
 
         else if (c == '}') {
             bff += "}";
-            this->code.push_back(bff);
-            bff.clear();
-            is_block = false;
+            blocks--;
+
+            if (blocks == 0) {
+                this->code.push_back(bff);
+                bff.clear();
+            }
             continue;
         }
 
-        if (!is_block && c == ';') {
+        if (blocks == 0 && c == ';') {
             this->code.push_back(bff);
             bff.clear();
         }
@@ -126,9 +129,14 @@ std::string Lexer::remove_spaces(const std::string &input) {
         }
 
         else if (i == ' ' || i == '\n') {
-            if (bff == "int" || bff == "double" || bff == "string" || bff == "bool") {
+            if (bff.find("int") != std::string::npos || bff.find("double") != std::string::npos || bff.find("float") != std::string::npos) {
                 result += ' ';
+                bff.clear();
             }
+            /*
+            if (bff == "int" || bff == "(int" || bff == "double" || bff == "(double" || bff == "string" || bff == "(string" || bff == "bool" || bff == "(bool") {
+                result += ' ';
+            }*/
             else {
                 bff.clear();
             }
@@ -140,7 +148,7 @@ std::string Lexer::remove_spaces(const std::string &input) {
 }
 
 bool Lexer::is_symbol(const char symbol) {
-    return (symbol == '=' ||symbol == '+' || symbol == '-' || symbol == '*' || symbol == '/' || symbol == '<' || symbol == '>' || symbol == '(' || symbol == ')' || symbol == '{' || symbol == '}' || symbol == ';');
+    return (symbol == '=' ||symbol == '+' || symbol == '-' || symbol == '*' || symbol == '/' || symbol == '<' || symbol == '>' || symbol == '(' || symbol == ')' || symbol == '{' || symbol == '}' || symbol == ';' || symbol == ',');
 }
 
 std::vector<std::vector<Token>> Lexer::decode() const {

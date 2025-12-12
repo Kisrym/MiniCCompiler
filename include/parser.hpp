@@ -5,6 +5,7 @@
 #include "lexer.hpp"
 
 #include <iostream>
+#include <optional>
 
 enum StatementType {
     VarDeclaration,
@@ -17,10 +18,10 @@ private:
     std::vector<std::vector<Token>> code;
 
     std::vector<Token> actual_instruction;
-    int pc;     // conta a instrução atual
+    std::size_t pc;     // conta a instrução atual
     std::size_t pos;    // conta o token atual
 
-    Token &current();
+    std::optional<Token> current();
     Token consume();
     bool match(TokenType type) const;
 

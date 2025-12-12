@@ -18,7 +18,7 @@ int main() {
 
     std::string content = buffer.str(); */
 
-    const std::string content = "if (x > 5){\nx = x + 3;\n int y = x * 2;\n } else {x = x * 10}";
+    const std::string content = "if (x > 0) { if (y < 3) { x = 1; } else { x = 2; } }";
     Lexer lex(content);
 
 
@@ -27,7 +27,7 @@ int main() {
 
     const auto *a = dynamic_cast<IfStmt*>(parser.parseStatement());
     parser.next_instruction();
-    const auto *b = dynamic_cast<ElseStmt*>(parser.parseStatement());
+    const auto *b = dynamic_cast<IfStmt*>(parser.parseStatement());
 
     if (!a) {
         std::cout << "ponteiro a invalido" << std::endl;

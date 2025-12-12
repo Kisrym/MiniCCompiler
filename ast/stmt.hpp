@@ -45,18 +45,31 @@ struct AssignStmt : public Stmt {
 struct IfStmt : public Stmt {
     Expr *condition;
     std::vector<Stmt *> thenBranches;
+    std::vector<Stmt *> elseBranches;
 
-    IfStmt(Expr *condition, std::vector<Stmt *> thenBranches)
-        : condition(condition), thenBranches(std::move(thenBranches))
+    IfStmt(Expr *condition, std::vector<Stmt *> thenBranches, std::vector<Stmt *> elseBranches)
+        : condition(condition), thenBranches(std::move(thenBranches)), elseBranches(std::move(elseBranches))
     {}
 };
 
-struct ElseStmt : public Stmt {
-    std::vector<Stmt *> elseBranches;
+struct ForStmt : public Stmt {
+    Stmt *definition;
+    Expr *condition;
+    AssignStmt *increment;
+    std::vector<Stmt *> body;
 
-    ElseStmt(std::vector<Stmt *> elseBranches)
-        : elseBranches(std::move(elseBranches))
+    ForStmt(Stmt *definition, Expr *condition, AssignStmt *increment, std::vector<Stmt *> body)
+        : definition(definition), condition(condition), increment(increment), body(std::move(body))
     {}
+};
+
+struct WhileStmt : public Stmt {
+    Expr *condition;
+    std::vector<Stmt *> body;
+
+    WhileStmt(Expr *condition, std::vector<Stmt *> body)
+        : condition(condition), body(std::move(body))
+    {};
 };
 
 #endif
