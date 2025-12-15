@@ -9,6 +9,11 @@ set(SOURCES
     src/lexer/lexer.cpp
     src/parser/parser.cpp
         include/token.hpp
+        src/semantic_analyzer/semantic_analyzer.cpp
+        include/semantic_analyzer.hpp
+        include/codegenerator.hpp
+        include/symbol.hpp
+        src/codegenerator/codegenerator.cpp
 )
 
 add_executable(main ${SOURCES})

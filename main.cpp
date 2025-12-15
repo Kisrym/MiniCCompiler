@@ -1,50 +1,40 @@
 #include "lexer.hpp"
 #include "parser.hpp"
+#include "semantic_analyzer.hpp"
 
 #include <fstream>
 #include <iostream>
 #include <sstream>
 
-int main() {
-/*     std::ifstream test_code("test.txt");
+#include "codegenerator.hpp"
 
-    if (!test_code.is_open()) {
-        std::cerr << "erro ao abrir o arquivo;\n";
-        return 0;
+std::string readFileIntoString(const std::string& filename) {
+    std::ifstream ifs("/home/kaio/Documentos/miniccompiler/" + filename);
+    if (!ifs) {
+        std::cerr << "Error reading file " << filename << std::endl;
     }
 
     std::stringstream buffer;
-    buffer << test_code.rdbuf();
+    buffer << ifs.rdbuf();
+    ifs.close();
 
-    std::string content = buffer.str(); */
+    return buffer.str();
+}
 
-    const std::string content = "if (x > 0) { if (y < 3) { x = 1; } else { x = 2; } }";
-    Lexer lex(content);
+int main() {
+    const std::string content = readFileIntoString("input.txt");
 
+    const Lexer lexer(content); // transforma o texto em tokens
+    Parser parser(lexer.decode()); // organiza os tokens em um ast válida
+    SemanticAnalyzer analyzer;
 
-    auto decoded_code = lex.decode();
-    Parser parser(decoded_code);
+    CodeGenerator gen(&parser, &analyzer);
+    const auto v = gen.generateCode();
 
-    const auto *a = dynamic_cast<IfStmt*>(parser.parseStatement());
-    parser.next_instruction();
-    const auto *b = dynamic_cast<IfStmt*>(parser.parseStatement());
-
-    if (!a) {
-        std::cout << "ponteiro a invalido" << std::endl;
+    for (const auto &c : v) {
+        std::cout << c;
     }
-    else {
-        std::cout << "ponteiro a existe" << std::endl;
-    }
-
-    delete a;
-
-
-    /* for (auto i : lex.decode()) {
-        for (auto v : i) {
-            std::cout << v << " ";
-        }
-        std::cout << "\n";
-    } */
+    std::cout << "Sucesso\n";
 
     return 0;
 }

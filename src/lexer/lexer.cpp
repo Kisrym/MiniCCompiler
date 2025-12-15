@@ -36,15 +36,17 @@ Lexer::Lexer(const std::string &code) {
         }
 
         if (blocks == 0 && c == ';') {
+            bff += ';';
             this->code.push_back(bff);
             bff.clear();
+            continue;
         }
 
         bff += c;
     }
 
-    if (!bff.empty())
-        this->code.push_back(bff);
+    /*if (!bff.empty())
+        this->code.push_back(bff);*/
 }
 
 std::vector<Token> Lexer::decode_instruction(const std::string &instruction) {

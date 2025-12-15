@@ -3,6 +3,7 @@
 
 #include "astnode.hpp"
 #include "lexer.hpp"
+#include "symbol.hpp"
 #include <string>
 #include <utility>
 
@@ -45,6 +46,9 @@ struct StringExpr : public Expr {
 
 struct VarExpr : public Expr {
     std::string value;
+    TokenType inferredType;
+    Symbol *symbol;
+
     VarExpr(std::string value) : value(std::move(value)) {};
 };
 
@@ -53,6 +57,7 @@ struct BinaryExpr : public Expr {
     Expr *value1;
     Expr *value2;
     Token op;
+    TokenType inferredType; // tipo inferido que vai vir da análise semântica a fim de auxiliar na geração de codigo
 
     //friend std::ostream& operator<<(std::ostream &os, const BinaryExpr &expr);
 
@@ -70,6 +75,8 @@ struct BinaryExpr : public Expr {
 struct UnaryExpr : public Expr {
     Expr *value1;
     Token op;
+    TokenType inferredType;
+
     UnaryExpr(Expr *value1, Token op)
         : value1(value1), op(std::move(op)) {}
 

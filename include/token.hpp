@@ -51,8 +51,13 @@ struct Token {
 
     friend std::ostream& operator<<(std::ostream &os, const Token &token);
     static TokenType get_type(const char type[]) {
-        if (is_numeric(type)) {
-            return NUM;
+        const auto [is_number, is_double] = is_numeric(type);
+
+        if (is_number) {
+            if (is_double) {
+                return DOUBLE;
+            }
+            return INT;
         }
 
         if (!strcmp(type, "int")){
@@ -220,13 +225,20 @@ struct Token {
     }
 
 private:
-    static bool is_numeric(const char v[]) {
+    // (eh_numero, eh_float)
+    static std::pair<bool, bool> is_numeric(const char v[]) {
+        std::pair<bool, bool> result = std::make_pair(false, false);
         for (int i = 0; v[i] != '\0'; i++) {
+            if (v[i] == '.') {
+                result.second = true;
+            }
             if (!(v[i] >= 48 && v[i] <= 57) && !(v[i] == '.')) {
-                return false;
+                return std::make_pair(false, false);
             }
         }
-        return true;
+
+        result.first = true;
+        return result;
     }
 };
 

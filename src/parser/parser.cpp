@@ -16,8 +16,12 @@ bool Parser::match(const TokenType type) const {
 }
 
 Expr *Parser::parseFactor() {
-    if (match(NUM)) {
-        return new DoubleExpr(std::stoi(consume().value)); // consome e já vai pro proximo
+    if (match(INT)) {
+        return new IntExpr(std::stoi(consume().value)); // consome e já vai pro proximo
+    }
+
+    if (match(DOUBLE)) {
+        return new DoubleExpr(std::stod(consume().value));
     }
 
     if (match(VALUE)) {
@@ -102,6 +106,7 @@ Stmt *Parser::parseStatement() {
         }
 
         consume(); // }
+        next_instruction(); // agora é tratado o else
 
         if (current().has_value() && current()->type == ELSE) {
             consume(); // ELSE
@@ -113,7 +118,26 @@ Stmt *Parser::parseStatement() {
             }
         }
 
+        else {
+            previous_instruction(); // se a instrução atual não for um else, o if não tem um else linkado
+        }
+
         return new IfStmt(condition, thenBranches, elseBranches);
+    }
+
+    if (first.type == WHILE) {
+        consume(); // (
+        Expr *condition = parseExpression();
+        consume(); // )
+        consume(); // {
+
+        std::vector<Stmt *> whileBranches;
+        while (current().has_value() && current()->type != BRACES2) {
+            whileBranches.push_back(parseStatement());
+            consume(); // ;
+        }
+
+        return new WhileStmt(condition, whileBranches);
     }
 
     if (first.type == FOR) {
@@ -133,6 +157,10 @@ Stmt *Parser::parseStatement() {
         }
 
         return new ForStmt(definition, condition, increment, statements);
+    }
+
+    if (first.type == ELSE) {
+        throw std::runtime_error("Illegal instruction: no 'if' linked.");
     }
 
     consume();

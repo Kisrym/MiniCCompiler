@@ -36,12 +36,26 @@ public:
 
     Stmt *parseStatement();
     bool next_instruction() {
-        if (++pc > code.size()) return false;
+        if (++pc >= code.size()) return false;
         actual_instruction = code[pc];
         pos = 0;
 
         return true;
     };
+
+    bool previous_instruction() {
+        if (--pc < 0) return false;
+        actual_instruction = code[pc];
+        pos = 0;
+
+        return true;
+    }
+
+    void reset_instructions() {
+        pc = 0;
+        pos = 0;
+        actual_instruction = code[pc];
+    }
 };
 
 #endif

@@ -20,12 +20,15 @@ struct VarDeclStmt : public Stmt {
     std::string id;
     Expr *expression;
 
+    Symbol *symbol;
+
     VarDeclStmt(Token type, std::string id, Expr *expression)
         : type(std::move(type)), id(std::move(id)), expression(expression)
     {};
 
     ~VarDeclStmt() override {
         delete expression;
+        delete symbol;
     }
 };
 
@@ -33,12 +36,15 @@ struct AssignStmt : public Stmt {
     std::string id;
     Expr *expression;
 
+    Symbol *symbol;
+
     AssignStmt(std::string id, Expr *expression)
         : id(std::move(id)), expression(expression)
     {};
 
     ~AssignStmt() override {
         delete expression;
+        delete symbol;
     }
 };
 
