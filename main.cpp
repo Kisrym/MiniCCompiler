@@ -34,7 +34,6 @@ int main() {
     for (const auto &c : v) {
         std::cout << c;
     }
-    std::cout << "Sucesso\n";
 
     return 0;
 }

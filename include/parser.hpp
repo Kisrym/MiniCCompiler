@@ -46,7 +46,6 @@ public:
     bool previous_instruction() {
         if (--pc < 0) return false;
         actual_instruction = code[pc];
-        pos = 0;
 
         return true;
     }

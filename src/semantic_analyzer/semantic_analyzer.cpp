@@ -114,7 +114,6 @@ Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
             if (scopes[i].contains(statement->id)) {
                 stmt_type = scopes[i][statement->id].type;
                 symb = &scopes[i][statement->id];
-                break;
             }
         }
 
@@ -152,6 +151,23 @@ Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
         }
 
         scopes.pop_back(); // não teve nenhum erro de escopo nesse escopo
+        return statement;
+    }
+
+    if (const auto statement = dynamic_cast<ForStmt *>(stmt)) {
+        SymbolTable symbol_table;
+
+        // ainda ficam no escopo anterior
+        analyze(statement->definition);
+        analyze(statement->condition);
+        analyze(statement->increment);
+
+        scopes.push_back(symbol_table);
+        for (const auto &body_stmt : statement->body) {
+            analyze(body_stmt);
+        }
+
+        scopes.pop_back();
         return statement;
     }
 

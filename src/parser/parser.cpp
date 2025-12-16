@@ -82,10 +82,15 @@ Expr *Parser::parseExpression() {
 
 Stmt *Parser::parseStatement() {
     // VAR DECL
-    Token first = consume(); // pode ser ou o tipo ou o nome
-    std::cout << first << std::endl;
+    const Token first = consume(); // pode ser ou o tipo ou o nome
+
     if (first.type == INT || first.type == DOUBLE || first.type == STRING || first.type == BOOL) {
-        Token id = consume();
+        const Token id = consume();
+
+        // será inicializado com 0 padrão
+        if (current().has_value() && current().value().type != ASSIGN) {
+            return new VarDeclStmt(first, id.value, new IntExpr(0));
+        }
         consume(); // =
 
         return new VarDeclStmt(first, id.value, parseExpression());
@@ -153,7 +158,10 @@ Stmt *Parser::parseStatement() {
         std::vector<Stmt *> statements;
         while (current().has_value() && current()->type != BRACES2) {
             statements.push_back(parseStatement());
-            consume(); // ;
+            if (current().has_value() && current()->type == SEMI) {
+                consume(); // em alguns casos, o próprio parseStatement vai tratar code blocks, nesse caso,
+            }
+
         }
 
         return new ForStmt(definition, condition, increment, statements);
