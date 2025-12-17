@@ -40,29 +40,51 @@ TokenType SemanticAnalyzer::analyze(Expr *expr) {
         return DOUBLE;
     }
 
+    if (const auto _ = dynamic_cast<BoolExpr *>(expr)) {
+        return BOOL;
+    }
+
     if (const auto expression = dynamic_cast<BinaryExpr *>(expr)) {
         const TokenType type_v1 = analyze(expression->value1);
         const TokenType type_v2 = analyze(expression->value2);
+        const TokenType op = expression->op.type;
 
-        if ((type_v1 == DOUBLE || type_v2 == DOUBLE) && (type_v1 == INT || type_v2 == INT)) {
-            expression->inferredType = DOUBLE;
-            return DOUBLE;
+        // OTIMIZAÇÃO AQUI DEPOIS: TALVEZ SEPARAR TIPOS DE DADOS ENTRE NUM E BOOL, EVITANDO TANTA COMPARAÇÃO
+        if (op != LESSER && op != GREATER && op != LE && op != GE && op != EQUAL && op != NEQUAL && op != AND && op != OR) {
+            if ((type_v1 == DOUBLE || type_v2 == DOUBLE) && (type_v1 == INT || type_v2 == INT)) {
+                expression->inferredType = DOUBLE;
+                return DOUBLE;
+            }
+
+            if (type_v1 != type_v2) { // por enquanto vai ser geral, posteriormente tipos vao se sobressair
+                throw std::runtime_error("Incompatible types.");
+            }
+
+            expression->inferredType = type_v1;
+            return type_v1; // se forem iguais
         }
+        // expressões booleanas
+        else {
+            if ((type_v1 == STRING || type_v2 == STRING) && (type_v1 != STRING || type_v2 != STRING)) {
+                throw std::runtime_error("Comparison between incomparable types.");
+            }
 
-        if (type_v1 != type_v2) { // por enquanto vai ser geral, posteriormente tipos vao se sobressair
-            throw std::runtime_error("Incompatible types.");
+            expression->inferredType = BOOL;
+            return BOOL;
         }
-
-        expression->inferredType = type_v1;
-        return type_v1; // se forem iguais
     }
 
     if (const auto expression = dynamic_cast<UnaryExpr *>(expr)) {
         const TokenType type_v1 = analyze(expression->value1);
         const TokenType op = expression->op.type;
 
-        if (type_v1 == STRING && op == MINUS) { // um exemplo apenas, tera mais
+        if (type_v1 == STRING && op == MINUS) { // um exemplo apenas, tera mais (DEPOIS ADICIONAR ERROS RELACIONADOS AO NOT)
             throw std::runtime_error("Incompatible types.");
+        }
+
+        if (op == NOT) {
+            expression->inferredType = BOOL;
+            return BOOL;
         }
 
         expression->inferredType = type_v1;
@@ -83,6 +105,12 @@ Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
             ||  (stmt_type == STRING && (expr_type == INT || expr_type == DOUBLE))
             ||  ((stmt_type == INT || stmt_type == DOUBLE) && expr_type == STRING)) { // adicionar o tratamento para tipo booleano posteriormente
                 throw std::runtime_error("Incompatible types.");
+            }
+
+            // faz sentido? tirar?
+            if (stmt_type == INT && expr_type == BOOL) {
+                symbol->type = BOOL; // conversao implicita
+                symbol->stackOffset = -1;
             }
 
             statement->symbol = symbol;

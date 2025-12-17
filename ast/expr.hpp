@@ -18,24 +18,19 @@ struct NumExpr : public Expr {
 
 struct IntExpr : public NumExpr {
     int value;
-
-    inline friend std::ostream& operator<<(std::ostream &os, const IntExpr &expr) {
-        os << expr.value;
-        return os;
-    };
-
-    IntExpr(int value) : value(value) {};
+    IntExpr(const int value) : value(value) {};
 };
 
 struct DoubleExpr : public NumExpr {
     double value;
 
-    inline friend std::ostream& operator<<(std::ostream &os, const DoubleExpr &expr) {
-        os << expr.value;
-        return os;
-    };
-
     DoubleExpr(const double value) : value(value) {};
+};
+
+struct BoolExpr : public Expr {
+    bool value;
+
+    BoolExpr(const bool value) : value(value) {};
 };
 
 struct StringExpr : public Expr {
@@ -85,35 +80,4 @@ struct UnaryExpr : public Expr {
     }
 };
 
-inline std::ostream& operator<<(std::ostream &os, const BinaryExpr &expr) {
-    if (!expr.value1 || !expr.value2) {
-        return os << "ERRO: ponteiro nulo em BinaryExpr";
-    }
-
-    if (auto i = dynamic_cast<IntExpr*>(expr.value1))
-        os << *i;
-    else if (auto d = dynamic_cast<DoubleExpr*>(expr.value1))
-        os << *d;
-    else if (auto s = dynamic_cast<StringExpr*>(expr.value1))
-        os << "\"" << s->value << "\"";
-    else if (auto b = dynamic_cast<BinaryExpr*>(expr.value1))
-        os << *b;
-    else
-        os << "<Expr desconhecida>";
-
-    os << " " << expr.op << " ";
-
-    if (auto i = dynamic_cast<IntExpr*>(expr.value2))
-        os << *i;
-    else if (auto d = dynamic_cast<DoubleExpr*>(expr.value2))
-        os << *d;
-    else if (auto s = dynamic_cast<StringExpr*>(expr.value2))
-        os << "\"" << s->value << "\"";
-    else if (auto b = dynamic_cast<BinaryExpr*>(expr.value2))
-        os << *b;
-    else
-        os << "<Expr desconhecida>";
-
-    return os;
-}
 #endif

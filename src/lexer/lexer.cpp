@@ -47,6 +47,10 @@ Lexer::Lexer(const std::string &code) {
 
     /*if (!bff.empty())
         this->code.push_back(bff);*/
+
+    if (code.empty()) {
+        throw std::runtime_error("Missing semicolon ';'");
+    }
 }
 
 std::vector<Token> Lexer::decode_instruction(const std::string &instruction) {
@@ -67,17 +71,28 @@ std::vector<Token> Lexer::decode_instruction(const std::string &instruction) {
             buffer + 5 = &buffer[5]
             */
 
-            if (start == end) { // simbolos seguidos
+            // essa condição avalia operações booleanas compostas com = (>=, <=, ==)
+            const bool cond_eq1 = (instruction.at(i) == '>' || instruction.at(i) == '<' || instruction.at(i) == '=' || instruction.at(i) == '!')
+                         && (i + 1 <= instruction.size()) && (instruction.at(i + 1) == '=');
+
+            // essa condição avalia or e and
+            char tmp;
+            const bool cond_eq2 = (
+                ((tmp = ((instruction.at(i) == '&') ? '&' : '\0'))) || ((tmp = ((instruction.at(i) == '|') ? '|' : '\0'))
+                )) && (i + 1 <= instruction.size()) && (instruction.at(i + 1) == tmp);
+
+            if (start == end && (!cond_eq2 && !cond_eq1)) { // simbolos seguidos diferentes das compostas
                 std::string bff = {instruction.at(i)};
                 tokens.emplace_back(Token::get_type(instruction.at(i)), bff);
                 continue;
             }
 
             std::string bff(buffer + start, buffer + end);
-            tokens.emplace_back(Token::get_type(bff.c_str()), bff);
 
-            if ((instruction.at(i) == '>' || instruction.at(i) == '<' || instruction.at(i) == '=')
-                    && (i + 1 <= instruction.size()) && (instruction.at(i + 1) == '=')){
+            if (!bff.empty())
+                tokens.emplace_back(Token::get_type(bff.c_str()), bff);
+
+            if (cond_eq1 || cond_eq2){
                 std::string bff2;
                 bff2 += instruction.at(i);
                 bff2 += instruction.at(i + 1);
@@ -131,7 +146,7 @@ std::string Lexer::remove_spaces(const std::string &input) {
         }
 
         else if (i == ' ' || i == '\n') {
-            if (bff.find("int") != std::string::npos || bff.find("double") != std::string::npos || bff.find("float") != std::string::npos) {
+            if (bff.find("int") != std::string::npos || bff.find("double") != std::string::npos || bff.find("float") != std::string::npos || bff.find("bool") != std::string::npos) {
                 result += ' ';
                 bff.clear();
             }
@@ -150,7 +165,7 @@ std::string Lexer::remove_spaces(const std::string &input) {
 }
 
 bool Lexer::is_symbol(const char symbol) {
-    return (symbol == '=' ||symbol == '+' || symbol == '-' || symbol == '*' || symbol == '/' || symbol == '<' || symbol == '>' || symbol == '(' || symbol == ')' || symbol == '{' || symbol == '}' || symbol == ';' || symbol == ',');
+    return (symbol == '=' ||symbol == '+' || symbol == '-' || symbol == '*' || symbol == '/' || symbol == '<' || symbol == '>' || symbol == '(' || symbol == ')' || symbol == '{' || symbol == '}' || symbol == ';' || symbol == ',' || symbol == '!' || symbol == '&' || symbol == '|');
 }
 
 std::vector<std::vector<Token>> Lexer::decode() const {

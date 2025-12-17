@@ -36,6 +36,9 @@ enum TokenType {
     COMMA,
     FOR,
     WHILE,
+    AND,
+    OR,
+    NOT,
     UNKNOWN
 };
 
@@ -45,6 +48,9 @@ struct Token {
     TokenType type;
     std::string value;
 
+    Token()
+        : type(UNKNOWN)
+    {};
     Token(const TokenType type, std::string value)
         : type(type), value(std::move(value))
     {}
@@ -161,6 +167,22 @@ struct Token {
             return COMMA;
         }
 
+        if (!strcmp(type, "true") || !strcmp(type, "false")) {
+            return BOOL;
+        }
+
+        if (!strcmp(type, "&&")) {
+            return AND;
+        }
+
+        if (!strcmp(type, "||")) {
+            return OR;
+        }
+
+        if (!strcmp(type, "!")) {
+            return NOT;
+        }
+
         else { // sera considerado uma variavel
             return ID;
         }
@@ -217,6 +239,10 @@ struct Token {
 
         if (type == ',') {
             return COMMA;
+        }
+
+        if (type == '!') {
+            return NOT;
         }
 
         else {

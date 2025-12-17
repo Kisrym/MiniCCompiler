@@ -46,11 +46,23 @@ unsigned int CodeGenerator::genExpr(Expr *expression) {
         return genBinaryExpr(expr);
     }
 
+    if (const auto expr = dynamic_cast<BoolExpr *>(expression)) {
+        return genBoolExpr(expr);
+    }
+
+    if (const auto expr = dynamic_cast<UnaryExpr *>(expression)) {
+        return genUnaryExpr(expr);
+    }
+
     return -1;
 }
 
-unsigned int CodeGenerator::genExpr(Expr *expression, const std::string &label) {
-    return genBinaryExpr(dynamic_cast<BinaryExpr *>(expression), label);
+unsigned int CodeGenerator::genExpr(Expr *expression, const std::string &label_else, const std::string &label_if) {
+    if (const auto expr = dynamic_cast<BinaryExpr *>(expression)) {
+        return genBinaryExpr(expr, label_else, label_if);
+    }
+
+    return genExpr(expression);
 }
 
 unsigned int CodeGenerator::genLiteral(const IntExpr *expr) {
@@ -60,6 +72,19 @@ unsigned int CodeGenerator::genLiteral(const IntExpr *expr) {
     t_register++;
 
     return tmp;
+}
+
+unsigned int CodeGenerator::genBoolExpr(const BoolExpr *expr) {
+    const unsigned int tmp = t_register;
+
+    if (const unsigned int conversion = expr->value) {
+        result_bff += "li " + get_reg_name(t_register) + ", " + std::to_string(conversion) + "\n";
+        t_register++;
+
+        return tmp;
+    }
+
+    return 100; // vale x0 (zero)
 }
 
 unsigned int CodeGenerator::genVarExpr(const VarExpr *expr) {
@@ -95,60 +120,165 @@ unsigned int CodeGenerator::genBinaryExpr(const BinaryExpr *expr) {
             command = "div ";
             break;
 
+        case AND:
+            command = "and ";
+            break;
+
+        case OR:
+            command = "or ";
+            break;
+
+        case EQUAL:
+        case NEQUAL:
+            command = "xor ";
+            break;
+
+        case GREATER:
+        case LESSER:
+        case GE:
+        case LE:
+            command = "slt ";
+            break;
+
         default:
             command = "";
     }
 
     const std::string rd = get_reg_name(left);
-    result_bff += command + rd + ", " + rd + ", " + get_reg_name(right) + "\n";
-    t_register--; // libera o registrador
+    if (op == GREATER || op == LE) {
+        result_bff += command + rd + ", " + get_reg_name(right) + ", " + rd + "\n"; // inverte a fim de simular comparações de maior que
+        t_register--;
+
+        if (op == LE) {
+            result_bff += "xori " + rd + ", " + rd + ", 1\n";
+        }
+    }
+
+    else {
+        result_bff += command + rd + ", " + rd + ", " + get_reg_name(right) + "\n";
+        t_register--; // libera o registrador
+
+        if (op == EQUAL) {
+            result_bff += "sltiu " + rd + ", " + rd + ", 1\n"; // (xor x, y == 0) ? x == y : x != y. basicamente, essa instrução verifica isso
+        }
+        else if (op == NEQUAL) {
+            result_bff += "sltu " + rd + ", zero, " + rd + "\n";
+        }
+    }
 
     return left;
 }
 
-unsigned int CodeGenerator::genBinaryExpr(const BinaryExpr *expr, const std::string &label) {
-    const unsigned int left = genExpr(expr->value1);
-    const unsigned int right = genExpr(expr->value2);
+unsigned int CodeGenerator::genBinaryExpr(const BinaryExpr *expr, const std::string &label_else, const std::string &label_if) {
+    if (expr->op.type == AND || expr->op.type == OR) {
+        op_stack.push(expr->op.type);
+    }
+    const unsigned int left = genExpr(expr->value1, label_else, label_if);
+    const unsigned int right = genExpr(expr->value2, label_else, label_if);
 
     const TokenType op = expr->op.type;
 
     std::string command;
 
     // aqui vão estar ao contrário para mais fácil conversão à lógica do asm
-    switch (op) {
-        case LESSER:
-            command = "bge ";
-            break;
+    if (!op_stack.empty() && op_stack.top() == OR) {
+        switch (op) {
+            case LESSER:
+                command = "blt ";
+                break;
 
-        case GREATER:
-            command = "ble ";
-            break;
+            case GREATER:
+                command = "bgt ";
+                break;
 
-        case LE: // <=
-            command = "bgt ";
-            break;
+            case LE: // <=
+                command = "ble ";
+                break;
 
-        case GE: // >=
-            command = "blt ";
-            break;
+            case GE: // >=
+                command = "bge ";
+                break;
 
-        case EQUAL:
-            command = "bne ";
-            break;
+            case EQUAL:
+                command = "beq ";
+                break;
 
-        case NEQUAL:
-            command = "beq ";
-            break;
+            case NEQUAL:
+                command = "bne ";
+                break;
 
-        default:
-            command = "";
+            default:
+                command = "";
+                break;
+        }
+    }
+    else {
+        switch (op) {
+            case LESSER:
+                command = "bge ";
+                break;
+
+            case GREATER:
+                command = "ble ";
+                break;
+
+            case LE: // <=
+                command = "bgt ";
+                break;
+
+            case GE: // >=
+                command = "blt ";
+                break;
+
+            case EQUAL:
+                command = "bne ";
+                break;
+
+            case NEQUAL:
+                command = "beq ";
+                break;
+
+            default:
+                command = "";
+                break;
+        }
     }
 
     const std::string rd = get_reg_name(left);
-    result_bff += command + get_reg_name(left) + ", " + get_reg_name(right) + ", " + label + "\n";
-    t_register--; // libera o registrador
 
+    // a forma como serão feitos os saltos simularão o AND e OR
+    // se ambos pularem pro ELSE, será um AND, se pularem pro IF, será um OR
+    if (!op_stack.empty() && op_stack.top() == OR){
+        result_bff += command + get_reg_name(left) + ", " + get_reg_name(right) + ", " + label_if + "\n";
+    }
+
+    else if (!command.empty()){
+        result_bff += command + get_reg_name(left) + ", " + get_reg_name(right) + ", " + label_else + "\n";
+    }
+
+    if (!op_stack.empty())
+        op_stack.pop();
+
+    t_register--; // libera o registrador
     return left;
+}
+
+unsigned int CodeGenerator::genUnaryExpr(const UnaryExpr *expr) {
+    const TokenType op = expr->op.type;
+
+    const unsigned int rd = genExpr(expr->value1);
+    const std::string rd_name = get_reg_name(rd);
+
+    if (op == MINUS) {
+        result_bff += "sub " + rd_name + "zero, " + rd_name + "\n";
+
+        return rd;
+    }
+
+    // caso default: NOT
+    result_bff += "xori " + rd_name + ", " + rd_name + ", -1\n";
+
+    return rd;
 }
 
 // statements
@@ -190,7 +320,7 @@ std::string CodeGenerator::genAssign(const AssignStmt *statement) {
     const std::string rs1 = get_reg_name(genExpr(statement->expression)); // armazena o reg com o resultado da expressão em rs1
     t_register--;
 
-    result_bff += "mv " + rd + ", " + rs1 + "\n"; // OTIMIZAÇÃO DPS
+    result_bff += "add " + rd + ", zero, " + rs1 + "\n"; // OTIMIZAÇÃO DPS
     result_bff += "sw " + rd + ", " + std::to_string(statement->symbol->stackOffset) + "(fp)\n"; // salva dnv
     t_register--;
 
@@ -200,14 +330,17 @@ std::string CodeGenerator::genAssign(const AssignStmt *statement) {
 std::string CodeGenerator::genIfStmt(const IfStmt *statement) {
     const std::string label_else = "ELSE" + std::to_string(labels);
     const std::string label_end = "ENDIF" + std::to_string(labels);
+    const std::string label_start = "STARTIF" + std::to_string(labels);
 
     labels++;
-    genExpr(statement->condition, label_else); // gera o if (na pratica so vai pular pro else)
+    genExpr(statement->condition, label_else, label_start); // gera o if (na pratica so vai pular pro else)
+
+    result_bff += label_start + ": \n";
     for (const auto &stmt : statement->thenBranches) {
         genStmt(stmt);
     }
 
-    result_bff += "j " + label_end + "\n" + label_else + ": \n";
+    result_bff += "jal zero, " + label_end + "\n" + label_else + ": \n";
     for (const auto &stmt : statement->elseBranches) {
         genStmt(stmt);
     }
@@ -222,12 +355,12 @@ std::string CodeGenerator::genForStmt(const ForStmt *statement) {
 
     labels++;
     result_bff += label_for + ": \n";
-    genExpr(statement->condition, label_end); // gera a condicao
+    genExpr(statement->condition, label_end, label_for); // gera a condicao
     for (const auto &stmt : statement->body) {
         genStmt(stmt);
     }
     genStmt(statement->increment);
 
-    result_bff += "j " + label_for + "\n" + label_end + ": \n";
+    result_bff += "jal zero, " + label_for + "\n" + label_end + ": \n";
     return result_bff;
 }

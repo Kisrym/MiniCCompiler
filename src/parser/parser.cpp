@@ -28,6 +28,10 @@ Expr *Parser::parseFactor() {
         return new StringExpr(consume().value);
     }
 
+    if (match(BOOL)) {
+        return new BoolExpr(consume().value == "true");
+    }
+
     if (match(PAREN1)) {
         consume(); // (
         Expr *expression = parseExpression();
@@ -47,7 +51,7 @@ Expr *Parser::parseFactor() {
         return new VarExpr(consume().value);
     }
 
-    if (match(MINUS)) {
+    if (match(MINUS) || match(NOT)) {
         const Token op = consume();
         return new UnaryExpr(parseFactor(), op);
     }
@@ -59,7 +63,7 @@ Expr *Parser::parseTerm(){
     Expr *left = parseFactor();
 
     while (match(MUL) || match(DIV) || match(LESSER) || match(LE) || match(GREATER)
-        || match(GE) || match(EQUAL) || match(NEQUAL)) {
+       || match(GE) || match(EQUAL) || match(NEQUAL)) {
         Token op = consume();
         Expr *right = parseFactor();
         left = new BinaryExpr(left, right, op);
@@ -71,7 +75,7 @@ Expr *Parser::parseTerm(){
 Expr *Parser::parseExpression() {
     Expr *left = parseTerm();
 
-    while (match(PLUS) || match(MINUS)) {
+    while (match(PLUS) || match(MINUS) || match(OR) || match(AND)) {
         Token op = consume();
         Expr *right = parseTerm();
         left = new BinaryExpr(left, right, op);
