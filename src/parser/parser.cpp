@@ -24,7 +24,7 @@ Expr *Parser::parseFactor() {
         return new DoubleExpr(std::stod(consume().value));
     }
 
-    if (match(VALUE)) {
+    if (match(STRING)) {
         return new StringExpr(consume().value);
     }
 

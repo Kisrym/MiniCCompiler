@@ -3,46 +3,109 @@
 
 #include <string>
 #include <cstring>
+#include <unordered_map>
 #include <utility>
 
 enum TokenType {
+    /* TIPOS */
     INT,
     DOUBLE,
     FLOAT,
     STRING,
     BOOL,
 
-    ID, // variaveis
-    NUM,
-    VALUE,
+    /* VARIÁVEIS */
+    ID,
+    CONST,
+
+    /* KEYWORDS */
     IF,
     ELSE,
-    PLUS,
-    MINUS,
-    MUL,
-    DIV,
-    SEMI, // ;
-    ASSIGN,
-    EQUAL,
-    LE,
-    GE,
-    NEQUAL,
-    LESSER,
-    GREATER,
-    PAREN1,
-    PAREN2,
-    BRACES1,
-    BRACES2,
-    COMMA,
     FOR,
     WHILE,
+
+   /* OPERAÇÕES */
+    PLUS,
+    INCREMENT,
+    MINUS,
+    DECREMENT,
+    MUL,
+    DIV,
+    ASSIGN,
+    EQUAL,
+    NEQUAL,
+    LE, // <=
+    GE, // >=
+    LESSER,
+    GREATER,
     AND,
     OR,
     NOT,
+
+    /* ESTRUTURAS */
+    SEMI, // ;
+    PAREN1, // (
+    PAREN2, // )
+    BRACES1,// {
+    BRACES2,// }
+    COMMA,  // ,
+    QUOT,
+
     UNKNOWN
 };
 
-std::ostream& operator<<(std::ostream &os, TokenType type);
+inline std::unordered_map<std::string, TokenType> type_table = {
+    /* TIPOS */
+    {"int", INT},
+    {"double", DOUBLE},
+    {"float", FLOAT},
+    {"string", STRING},
+    {"bool", BOOL},
+
+    {"const", CONST},
+
+    /* KEYWORDS */
+    {"if", IF},
+    {"else", ELSE},
+    {"for", FOR},
+    {"while", WHILE},
+
+    /* OPERAÇÕES */
+    {"==", EQUAL},
+    {"!=", NEQUAL},
+    {"<=", LE},
+    {">=", GE},
+    {"&&", AND},
+    {"||", OR},
+    {"++", INCREMENT},
+    {"--", DECREMENT},
+
+    /* LITERAIS BOOL */
+    {"true", BOOL},
+    {"false", BOOL}
+};
+
+inline std::unordered_map<char, TokenType> single_op_structure_table = {
+     /* OPERACOES */
+    {'+', PLUS},
+    {'-', MINUS},
+    {'*', MUL},
+    {'/', DIV},
+    {'=', ASSIGN},
+    {'<', LESSER},
+    {'>', GREATER},
+    {'!', NOT},
+    {'&', AND},
+    {'|', OR},
+
+    /* ESTRUTURAS */
+    {';', SEMI},
+    {'(', PAREN1},
+    {')', PAREN2},
+    {'{', BRACES1},
+    {'}', BRACES2},
+    {',', COMMA}
+};
 
 struct Token {
     TokenType type;
@@ -55,210 +118,31 @@ struct Token {
         : type(type), value(std::move(value))
     {}
 
-    friend std::ostream& operator<<(std::ostream &os, const Token &token);
-    static TokenType get_type(const char type[]) {
-        const auto [is_number, is_double] = is_numeric(type);
-
-        if (is_number) {
-            if (is_double) {
-                return DOUBLE;
-            }
+    static TokenType get_type(const std::string &type) {
+        if (const auto [is_number, is_double] = is_numeric(type); is_number) {
+            if (is_double) return DOUBLE;
             return INT;
         }
 
-        if (!strcmp(type, "int")){
-            return INT;
-        }
-        if (!strcmp(type, "double")){
-            return DOUBLE;
-        }
-        if (!strcmp(type, "float")){
-            return FLOAT;
-        }
-        if (!strcmp(type, "string")) {
-            return STRING;
-        }
-
-        if (!strcmp(type, "bool")) {
-            return BOOL;
-        }
-
-        if (!strcmp(type, "if")) {
-            return IF;
-        }
-
-        if (!strcmp(type, "else")) {
-            return ELSE;
-        }
-
-        if (!strcmp(type, "for")) {
-            return FOR;
-        }
-
-        if (!strcmp(type, "while")) {
-            return WHILE;
-        }
-
-        if (!strcmp(type, "+")) {
-            return PLUS;
-        }
-
-        if (!strcmp(type, "-")) {
-            return MINUS;
-        }
-
-        if (!strcmp(type, "*")) {
-            return MUL;
-        }
-
-        if (!strcmp(type, "/")) {
-            return DIV;
-        }
-
-        if (!strcmp(type, ";")) {
-            return SEMI;
-        }
-
-        if (!strcmp(type, "=")) {
-            return ASSIGN;
-        }
-
-        if (!strcmp(type, ">")) {
-            return GREATER;
-        }
-
-        if (!strcmp(type, "<")) {
-            return LESSER;
-        }
-
-        if (!strcmp(type, "==")) {
-            return EQUAL;
-        }
-
-        if (!strcmp(type, "!=")) {
-            return NEQUAL;
-        }
-
-        if (!strcmp(type, ">=")) {
-            return GE;
-        }
-
-        if (!strcmp(type, "<=")) {
-            return LE;
-        }
-
-        if (!strcmp(type, "(")) {
-            return PAREN1;
-        }
-
-        if (!strcmp(type, ")")) {
-            return PAREN2;
-        }
-
-        if (!strcmp(type, "{")) {
-            return BRACES1;
-        }
-
-        if (!strcmp(type, "}")) {
-            return BRACES2;
-        }
-
-        if (!strcmp(type, ",")) {
-            return COMMA;
-        }
-
-        if (!strcmp(type, "true") || !strcmp(type, "false")) {
-            return BOOL;
-        }
-
-        if (!strcmp(type, "&&")) {
-            return AND;
-        }
-
-        if (!strcmp(type, "||")) {
-            return OR;
-        }
-
-        if (!strcmp(type, "!")) {
-            return NOT;
-        }
-
-        else { // sera considerado uma variavel
-            return ID;
-        }
-
+        if (type_table.contains(type)) return type_table.at(type);
+        return ID;
     }
-    static TokenType get_type(const char type) {
-        if (type == '+') {
-            return PLUS;
-        }
 
-        if (type == '-') {
-            return MINUS;
-        }
-
-        if (type == '*') {
-            return MUL;
-        }
-
-        if (type == '/') {
-            return DIV;
-        }
-
-        if (type == ';') {
-            return SEMI;
-        }
-
-        if (type == '=') {
-            return ASSIGN;
-        }
-
-        if (type == '(') {
-            return PAREN1;
-        }
-
-        if (type == ')') {
-            return PAREN2;
-        }
-
-        if (type == '>') {
-            return GREATER;
-        }
-
-        if (type == '<') {
-            return LESSER;
-        }
-
-        if (type == '{') {
-            return BRACES1;
-        }
-
-        if (type == '}') {
-            return BRACES2;
-        }
-
-        if (type == ',') {
-            return COMMA;
-        }
-
-        if (type == '!') {
-            return NOT;
-        }
-
-        else {
-            return UNKNOWN;
-        }
+    static TokenType get_type(const char op) {
+        if (single_op_structure_table.contains(op)) return single_op_structure_table.at(op);
+        return UNKNOWN;
     }
 
 private:
     // (eh_numero, eh_float)
-    static std::pair<bool, bool> is_numeric(const char v[]) {
+    static std::pair<bool, bool> is_numeric(const std::string &v) {
         std::pair<bool, bool> result = std::make_pair(false, false);
-        for (int i = 0; v[i] != '\0'; i++) {
-            if (v[i] == '.') {
+
+        for (const char &c : v) {
+            if (c == '.') {
                 result.second = true;
             }
-            if (!(v[i] >= 48 && v[i] <= 57) && !(v[i] == '.')) {
+            else if (!isdigit(c)) {
                 return std::make_pair(false, false);
             }
         }

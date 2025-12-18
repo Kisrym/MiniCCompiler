@@ -6,14 +6,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 set(SOURCES
     main.cpp
-    src/lexer/lexer.cpp
-    src/parser/parser.cpp
+        src/parser/parser.cpp
         include/token.hpp
         src/semantic_analyzer/semantic_analyzer.cpp
         include/semantic_analyzer.hpp
         include/codegenerator.hpp
         include/symbol.hpp
         src/codegenerator/codegenerator.cpp
+        src/lexer/lexer.cpp
+        include/lexer.hpp
 )
 
 add_executable(main ${SOURCES})

@@ -1,6 +1,6 @@
 #include  "semantic_analyzer.hpp"
 
-#include <bits/locale_facets_nonio.h>
+#include <stdexcept>
 
 bool SemanticAnalyzer::is_in_scope(const std::string &id) const {
     for (int i = scopes.size()-1; i >= 0; --i) {
