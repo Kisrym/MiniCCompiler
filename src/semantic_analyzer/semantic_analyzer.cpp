@@ -24,7 +24,7 @@ TokenType SemanticAnalyzer::analyze(Expr *expr) {
         for (int i = scopes.size()-1; i >= 0; --i) { // procura no escopo atual e nos acima
             if (scopes[i].contains(id)) {
                 symb = &scopes[i][id];
-                break;
+                //break;
             }
         }
 
@@ -189,6 +189,19 @@ Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
         analyze(statement->definition);
         analyze(statement->condition);
         analyze(statement->increment);
+
+        scopes.push_back(symbol_table);
+        for (const auto &body_stmt : statement->body) {
+            analyze(body_stmt);
+        }
+
+        scopes.pop_back();
+        return statement;
+    }
+
+    if (const auto statement = dynamic_cast<WhileStmt *>(stmt)) {
+        SymbolTable symbol_table;
+        analyze(statement->condition);
 
         scopes.push_back(symbol_table);
         for (const auto &body_stmt : statement->body) {

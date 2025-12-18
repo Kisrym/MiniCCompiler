@@ -115,7 +115,6 @@ Stmt *Parser::parseStatement() {
         }
 
         consume(); // }
-        next_instruction(); // agora é tratado o else
 
         if (current().has_value() && current()->type == ELSE) {
             consume(); // ELSE
@@ -125,10 +124,25 @@ Stmt *Parser::parseStatement() {
                 elseBranches.push_back(parseStatement());
                 consume(); // ;
             }
+
+            consume(); // }
         }
 
-        else {
-            previous_instruction(); // se a instrução atual não for um else, o if não tem um else linkado
+        else { // CORRIGIR ESSA PARTE DEPOIS: MODIFICAR MELHOR O LEXER
+            next_instruction(); // agora é tratado o else
+
+            if (current().has_value() && current()->type == ELSE) {
+                consume();
+                consume();
+
+                while (current().has_value() && current()->type != BRACES2) {
+                    elseBranches.push_back(parseStatement());
+                    consume(); // ;
+                }
+                consume(); // }
+            }
+
+            else previous_instruction(); // se a instrução atual não for um else, o if não tem um else linkado
         }
 
         return new IfStmt(condition, thenBranches, elseBranches);

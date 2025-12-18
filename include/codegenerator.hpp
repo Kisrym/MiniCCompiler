@@ -37,6 +37,7 @@ class CodeGenerator {
     std::string genAssign(const AssignStmt *statement);
     std::string genIfStmt(const IfStmt *statement);
     std::string genForStmt(const ForStmt *statement);
+    std::string genWhileStmt(const WhileStmt *statement);
 
     // expressions
     unsigned int genExpr(Expr *expression);

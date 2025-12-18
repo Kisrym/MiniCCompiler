@@ -299,6 +299,10 @@ std::string CodeGenerator::genStmt(Stmt *statement) {
         return genForStmt(stmt);
     }
 
+    if (const auto stmt = dynamic_cast<WhileStmt *>(statement)) {
+        return genWhileStmt(stmt);
+    }
+
     return "";
 }
 
@@ -352,15 +356,37 @@ std::string CodeGenerator::genIfStmt(const IfStmt *statement) {
 std::string CodeGenerator::genForStmt(const ForStmt *statement) {
     const std::string label_for = "FOR" + std::to_string(labels);
     const std::string label_end = "ENDFOR" + std::to_string(labels);
+    const std::string label_start = "STARTFOR" + std::to_string(labels);
 
     labels++;
+
+    genStmt(statement->definition);
     result_bff += label_for + ": \n";
-    genExpr(statement->condition, label_end, label_for); // gera a condicao
+    genExpr(statement->condition, label_end, label_start); // gera a condicao
+
     for (const auto &stmt : statement->body) {
         genStmt(stmt);
     }
     genStmt(statement->increment);
 
     result_bff += "jal zero, " + label_for + "\n" + label_end + ": \n";
+    return result_bff;
+}
+
+std::string CodeGenerator::genWhileStmt(const WhileStmt *statement) {
+    const std::string label_while = "WHILE" + std::to_string(labels);
+    const std::string label_end = "ENDWHILE" + std::to_string(labels);
+    const std::string label_start = "STARTWHILE" + std::to_string(labels);
+
+    labels++;
+    result_bff += label_while + ": \n";
+    genExpr(statement->condition, label_end, label_start); // gera o if (na pratica so vai pular pro else)
+
+    result_bff += label_start + ": \n";
+    for (const auto &stmt : statement->body) {
+        genStmt(stmt);
+    }
+
+    result_bff += "jal zero, " + label_while + "\n" + label_end + ": \n";
     return result_bff;
 }

@@ -23,5 +23,6 @@ target_include_directories(main PRIVATE
     ast
 )
 
-target_compile_options(main PRIVATE -Wall)
+target_compile_options(main PRIVATE -Wall) #-fsanitize=address -g -O0)
+#target_link_options(main PRIVATE -fsanitize=address -g -O0)
 

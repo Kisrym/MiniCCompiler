@@ -30,9 +30,12 @@ private:
     Expr *parseFactor();
 
 public:
-    Parser(std::vector<std::vector<Token>> code)
-        : code(code), actual_instruction(code[0]), pc(0), pos(0)
-    {};
+    Parser(const std::vector<std::vector<Token>> &code)
+        : code(code), pc(0), pos(0) {
+
+        actual_instruction.reserve(code.size());
+        actual_instruction = code[0];
+    };
 
     Stmt *parseStatement();
     bool next_instruction() {

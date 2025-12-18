@@ -1,0 +1,20 @@
+int x = 0;
+int y = 0;
+int z = 0;
+
+if (x != 0 && y > 0) {
+    z = 1;
+} else {
+    z = 2;
+}
+
+if (x == 0 || y > 0) {
+    z = z + 1;
+}
+
+int b1 = (x == 0);
+int b2 = (x != 0);
+int b3 = (x == 0 && y == 0);
+int b4 = (x != 0 || y == 0);
+
+int r = b1 + b2 + b3 + b4;
