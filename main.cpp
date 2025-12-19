@@ -25,16 +25,16 @@ int main() {
     const std::string content = readFileIntoString("input.txt");
 
     Lexer lexer(content); // transforma o texto em tokens
-    auto v = lexer.tokenize();
-    //Parser parser(lexer.tokenize()); // organiza os tokens em um ast válida
+    Parser parser(lexer.tokenize()); // organiza os tokens em um ast válida
+
     SemanticAnalyzer analyzer;
 
-    //CodeGenerator gen(&parser, &analyzer);
-    //const auto v = gen.generateCode();
+    CodeGenerator gen(&parser, &analyzer);
+    const auto v = gen.generateCode();
 
-    /*for (const auto &c : v) {
+    for (const auto &c : v) {
         std::cout << c;
-    }*/
+    }
 
     return 0;
 }

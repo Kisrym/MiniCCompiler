@@ -3,12 +3,11 @@
 CodeGenerator::CodeGenerator(Parser *parser, SemanticAnalyzer *semanticAnalyzer)
     : parser(parser), analyzer(semanticAnalyzer), currentStackOffset(0), pos(0)
 {
-    t_register = labels = 0;
+    t_register = labels = t_string = 0;
 
-    do {
-        Stmt *current_statement = parser->parseStatement();
+    while (Stmt *current_statement = parser->parseStatement()){
         instructions.push_back(analyzer->analyze(current_statement)); // armazena as instruções com as anotações do semantic analyzer
-    } while (parser->next_instruction());
+    }
 
     current_instruction = instructions[0];
     FRAME_SIZE = analyzer->get_current_offset() - 4;
@@ -19,16 +18,21 @@ std::vector<std::string> CodeGenerator::generateCode() {
     const std::string fs_str = std::to_string(FRAME_SIZE);
     const std::string fs4_str = std::to_string(4);
 
-    generated_code.push_back("addi sp, sp, " + fs_str + "\nsw fp, " + fs4_str + "(sp)\nmv fp, sp\n\n");
+    data_bff.append(".data\n");
+
+    generated_code.emplace_back(".text\n");
+    generated_code.push_back("\taddi sp, sp, " + fs_str + "\n\tsw fp, " + fs4_str + "(sp)\n\tadd fp, zero, sp\n\n");
 
     for (Stmt *stmt : instructions) {
         genStmt(stmt);
-        generated_code.push_back(result_bff);
-        result_bff.clear();
+        generated_code.push_back(text_bff);
+        text_bff.clear();
     }
 
-    generated_code.push_back("\nmv sp, fp\nlw fp, " + fs4_str + "(sp)\naddi sp, sp, " + fs_str.substr(1) + "\n");
-    generated_code.emplace_back("li a7, 10\necall\n"); // exit program rars
+    generated_code.push_back("\n\tadd sp, zero, fp\n\tlw fp, " + fs4_str + "(sp)\n\taddi sp, sp, " + fs_str.substr(1) + "\n");
+    generated_code.emplace_back("\tli a7, 10\n\tecall\n"); // exit program rars
+
+    generated_code.insert(generated_code.cbegin(), data_bff);
 
     return generated_code;
 }
@@ -38,16 +42,16 @@ unsigned int CodeGenerator::genExpr(Expr *expression) {
         return genLiteral(expr); // por enquanto é somente esse
     }
 
+    if (const auto expr = dynamic_cast<StringExpr *>(expression)) {
+        return genStringExpr(expr);
+    }
+
     if (const auto expr = dynamic_cast<VarExpr *>(expression)) {
         return genVarExpr(expr);
     }
 
     if (const auto expr = dynamic_cast<BinaryExpr *>(expression)) {
         return genBinaryExpr(expr);
-    }
-
-    if (const auto expr = dynamic_cast<BoolExpr *>(expression)) {
-        return genBoolExpr(expr);
     }
 
     if (const auto expr = dynamic_cast<UnaryExpr *>(expression)) {
@@ -68,7 +72,7 @@ unsigned int CodeGenerator::genExpr(Expr *expression, const std::string &label_e
 unsigned int CodeGenerator::genLiteral(const IntExpr *expr) {
     const unsigned int tmp = t_register;
 
-    result_bff += "li " + get_reg_name(t_register) + ", " + std::to_string(expr->value) + "\n";
+    text_bff += "\tli " + get_reg_name(t_register) + ", " + std::to_string(expr->value) + "\n";
     t_register++;
 
     return tmp;
@@ -78,7 +82,7 @@ unsigned int CodeGenerator::genBoolExpr(const BoolExpr *expr) {
     const unsigned int tmp = t_register;
 
     if (const unsigned int conversion = expr->value) {
-        result_bff += "li " + get_reg_name(t_register) + ", " + std::to_string(conversion) + "\n";
+        text_bff += "\tli " + get_reg_name(t_register) + ", " + std::to_string(conversion) + "\n";
         t_register++;
 
         return tmp;
@@ -87,9 +91,22 @@ unsigned int CodeGenerator::genBoolExpr(const BoolExpr *expr) {
     return 100; // vale x0 (zero)
 }
 
+unsigned int CodeGenerator::genStringExpr(const StringExpr *expr) {
+    const unsigned int tmp = t_register;
+    const std::string string_label("STRING" + std::to_string(t_string));
+
+    data_bff.append("\t"+ string_label + ": .asciz " + "\"" + expr->value +"\"\n");
+    text_bff.append("\tla " + get_reg_name(t_register) + ", " + string_label + "\n");
+
+    t_register++;
+    t_string++;
+
+    return tmp;
+}
+
 unsigned int CodeGenerator::genVarExpr(const VarExpr *expr) {
     const unsigned tmp = t_register;
-    result_bff += "lw " + get_reg_name(t_register) + ", " + std::to_string(expr->symbol->stackOffset) + "(fp)\n";
+    text_bff += "\tlw " + get_reg_name(t_register) + ", " + std::to_string(expr->symbol->stackOffset) + "(fp)\n";
     t_register++;
 
     return tmp;
@@ -146,23 +163,23 @@ unsigned int CodeGenerator::genBinaryExpr(const BinaryExpr *expr) {
 
     const std::string rd = get_reg_name(left);
     if (op == GREATER || op == LE) {
-        result_bff += command + rd + ", " + get_reg_name(right) + ", " + rd + "\n"; // inverte a fim de simular comparações de maior que
+        text_bff += "\t" + command + rd + ", " + get_reg_name(right) + ", " + rd + "\n"; // inverte a fim de simular comparações de maior que
         t_register--;
 
         if (op == LE) {
-            result_bff += "xori " + rd + ", " + rd + ", 1\n";
+            text_bff += "\txori " + rd + ", " + rd + ", 1\n";
         }
     }
 
     else {
-        result_bff += command + rd + ", " + rd + ", " + get_reg_name(right) + "\n";
+        text_bff += "\t" + command + rd + ", " + rd + ", " + get_reg_name(right) + "\n";
         t_register--; // libera o registrador
 
         if (op == EQUAL) {
-            result_bff += "sltiu " + rd + ", " + rd + ", 1\n"; // (xor x, y == 0) ? x == y : x != y. basicamente, essa instrução verifica isso
+            text_bff += "\tsltiu " + rd + ", " + rd + ", 1\n"; // (xor x, y == 0) ? x == y : x != y. basicamente, essa instrução verifica isso
         }
         else if (op == NEQUAL) {
-            result_bff += "sltu " + rd + ", zero, " + rd + "\n";
+            text_bff += "\tsltu " + rd + ", zero, " + rd + "\n";
         }
     }
 
@@ -249,11 +266,11 @@ unsigned int CodeGenerator::genBinaryExpr(const BinaryExpr *expr, const std::str
     // a forma como serão feitos os saltos simularão o AND e OR
     // se ambos pularem pro ELSE, será um AND, se pularem pro IF, será um OR
     if (!op_stack.empty() && op_stack.top() == OR){
-        result_bff += command + get_reg_name(left) + ", " + get_reg_name(right) + ", " + label_if + "\n";
+        text_bff += "\t" + command + get_reg_name(left) + ", " + get_reg_name(right) + ", " + label_if + "\n";
     }
 
     else if (!command.empty()){
-        result_bff += command + get_reg_name(left) + ", " + get_reg_name(right) + ", " + label_else + "\n";
+        text_bff += "\t" + command + get_reg_name(left) + ", " + get_reg_name(right) + ", " + label_else + "\n";
     }
 
     if (!op_stack.empty())
@@ -270,13 +287,13 @@ unsigned int CodeGenerator::genUnaryExpr(const UnaryExpr *expr) {
     const std::string rd_name = get_reg_name(rd);
 
     if (op == MINUS) {
-        result_bff += "sub " + rd_name + "zero, " + rd_name + "\n";
+        text_bff += "\tsub " + rd_name + "zero, " + rd_name + "\n";
 
         return rd;
     }
 
     // caso default: NOT
-    result_bff += "xori " + rd_name + ", " + rd_name + ", -1\n";
+    text_bff += "\txori " + rd_name + ", " + rd_name + ", -1\n";
 
     return rd;
 }
@@ -308,27 +325,27 @@ std::string CodeGenerator::genStmt(Stmt *statement) {
 
 std::string CodeGenerator::genVarDecl(const VarDeclStmt *statement) {
     // salva o resultado da expressao
-    result_bff += "sw " + get_reg_name(genExpr(statement->expression)) + ", " + std::to_string(statement->symbol->stackOffset) + "(fp)\n";
+    text_bff += "\tsw " + get_reg_name(genExpr(statement->expression)) + ", " + std::to_string(statement->symbol->stackOffset) + "(fp)\n";
     t_register--;
 
-    return result_bff;
+    return text_bff;
 }
 
 std::string CodeGenerator::genAssign(const AssignStmt *statement) {
     const std::string rd = get_reg_name(t_register);
 
     // carrega a variavel pro assign
-    result_bff += "lw " + get_reg_name(t_register) + ", " + std::to_string(statement->symbol->stackOffset) + "(fp)\n";
+    text_bff += "\tlw " + get_reg_name(t_register) + ", " + std::to_string(statement->symbol->stackOffset) + "(fp)\n";
     t_register++; // aloca um reg pra ela
 
     const std::string rs1 = get_reg_name(genExpr(statement->expression)); // armazena o reg com o resultado da expressão em rs1
     t_register--;
 
-    result_bff += "add " + rd + ", zero, " + rs1 + "\n"; // OTIMIZAÇÃO DPS
-    result_bff += "sw " + rd + ", " + std::to_string(statement->symbol->stackOffset) + "(fp)\n"; // salva dnv
+    text_bff += "\tadd " + rd + ", zero, " + rs1 + "\n"; // OTIMIZAÇÃO DPS
+    text_bff += "\tsw " + rd + ", " + std::to_string(statement->symbol->stackOffset) + "(fp)\n"; // salva dnv
     t_register--;
 
-    return result_bff;
+    return text_bff;
 }
 
 std::string CodeGenerator::genIfStmt(const IfStmt *statement) {
@@ -339,18 +356,18 @@ std::string CodeGenerator::genIfStmt(const IfStmt *statement) {
     labels++;
     genExpr(statement->condition, label_else, label_start); // gera o if (na pratica so vai pular pro else)
 
-    result_bff += label_start + ": \n";
+    text_bff += label_start + ": \n";
     for (const auto &stmt : statement->thenBranches) {
         genStmt(stmt);
     }
 
-    result_bff += "jal zero, " + label_end + "\n" + label_else + ": \n";
+    text_bff += "\tjal zero, " + label_end + "\n" + label_else + ": \n";
     for (const auto &stmt : statement->elseBranches) {
         genStmt(stmt);
     }
-    result_bff += label_end + ": \n";
+    text_bff += label_end + ": \n";
 
-    return result_bff;
+    return text_bff;
 }
 
 std::string CodeGenerator::genForStmt(const ForStmt *statement) {
@@ -361,7 +378,7 @@ std::string CodeGenerator::genForStmt(const ForStmt *statement) {
     labels++;
 
     genStmt(statement->definition);
-    result_bff += label_for + ": \n";
+    text_bff += label_for + ": \n";
     genExpr(statement->condition, label_end, label_start); // gera a condicao
 
     for (const auto &stmt : statement->body) {
@@ -369,8 +386,8 @@ std::string CodeGenerator::genForStmt(const ForStmt *statement) {
     }
     genStmt(statement->increment);
 
-    result_bff += "jal zero, " + label_for + "\n" + label_end + ": \n";
-    return result_bff;
+    text_bff += "\tjal zero, " + label_for + "\n" + label_end + ": \n";
+    return text_bff;
 }
 
 std::string CodeGenerator::genWhileStmt(const WhileStmt *statement) {
@@ -379,14 +396,14 @@ std::string CodeGenerator::genWhileStmt(const WhileStmt *statement) {
     const std::string label_start = "STARTWHILE" + std::to_string(labels);
 
     labels++;
-    result_bff += label_while + ": \n";
+    text_bff += label_while + ": \n";
     genExpr(statement->condition, label_end, label_start); // gera o if (na pratica so vai pular pro else)
 
-    result_bff += label_start + ": \n";
+    text_bff += label_start + ": \n";
     for (const auto &stmt : statement->body) {
         genStmt(stmt);
     }
 
-    result_bff += "jal zero, " + label_while + "\n" + label_end + ": \n";
-    return result_bff;
+    text_bff += "\tjal zero, " + label_while + "\n" + label_end + ": \n";
+    return text_bff;
 }

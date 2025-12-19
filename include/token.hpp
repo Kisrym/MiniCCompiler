@@ -13,16 +13,19 @@ enum TokenType {
     FLOAT,
     STRING,
     BOOL,
+    VOID,
 
     /* VARIÁVEIS */
     ID,
     CONST,
+    FUNCTION,
 
     /* KEYWORDS */
     IF,
     ELSE,
     FOR,
     WHILE,
+    RETURN,
 
    /* OPERAÇÕES */
     PLUS,
@@ -61,6 +64,7 @@ inline std::unordered_map<std::string, TokenType> type_table = {
     {"float", FLOAT},
     {"string", STRING},
     {"bool", BOOL},
+    {"void", VOID},
 
     {"const", CONST},
 
@@ -69,6 +73,7 @@ inline std::unordered_map<std::string, TokenType> type_table = {
     {"else", ELSE},
     {"for", FOR},
     {"while", WHILE},
+    {"return", RETURN},
 
     /* OPERAÇÕES */
     {"==", EQUAL},

@@ -19,9 +19,11 @@ class CodeGenerator {
 
     int currentStackOffset;
     int pos;
-    std::string result_bff;
+    std::string text_bff;
+    std::string data_bff;
 
     unsigned int t_register;
+    unsigned int t_string;
     unsigned int labels;
     std::stack<TokenType> op_stack;
 
@@ -49,6 +51,7 @@ class CodeGenerator {
     unsigned int genBinaryExpr(const BinaryExpr *expr);
     unsigned int genBinaryExpr(const BinaryExpr *expr, const std::string &label_else, const std::string &label_if);
     unsigned int genUnaryExpr(const UnaryExpr *expr);
+    unsigned int genStringExpr(const StringExpr *expr);
 
     // util
     static std::string get_reg_name(const unsigned int reg) {

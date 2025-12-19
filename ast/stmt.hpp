@@ -22,7 +22,7 @@ struct VarDeclStmt : public Stmt {
 
     Symbol *symbol;
 
-    VarDeclStmt(Token type, std::string id, Expr *expression)
+    explicit VarDeclStmt(Token type, std::string id, Expr *expression)
         : type(std::move(type)), id(std::move(id)), expression(expression)
     {};
 
@@ -38,7 +38,7 @@ struct AssignStmt : public Stmt {
 
     Symbol *symbol;
 
-    AssignStmt(std::string id, Expr *expression)
+    explicit AssignStmt(std::string id, Expr *expression)
         : id(std::move(id)), expression(expression)
     {};
 
@@ -75,6 +75,26 @@ struct WhileStmt : public Stmt {
 
     WhileStmt(Expr *condition, std::vector<Stmt *> body)
         : condition(condition), body(std::move(body))
+    {};
+};
+
+struct FuncStmt : public Stmt {
+    Token type;
+    std::string id;
+    std::vector<Stmt *> parameters;
+    std::vector<Stmt *> body;
+
+    explicit FuncStmt(Token type, std::string id, std::vector<Stmt *> parameters, std::vector<Stmt *> body)
+        : type(std::move(type)), id(std::move(id)), parameters(std::move(parameters)), body(std::move(body))
+    {}
+};
+
+struct RetStmt : public Stmt {
+    Expr *expression;
+    TokenType inferredType;
+
+    explicit RetStmt(Expr *expression)
+        : expression(expression)
     {};
 };
 

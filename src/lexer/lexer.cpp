@@ -1,5 +1,7 @@
 #include "lexer.hpp"
 
+#include <stdexcept>
+
 char Lexer::consume() {
     if (pos <= content.length()) {
         return content[pos++];
@@ -34,7 +36,7 @@ std::vector<Token> Lexer::tokenize() {
             if (const std::string tmp{l, peekNext()}; type_table.contains(tmp)) {
                 emit(Token::get_type(tmp), tmp);
                 consume();
-                consume();
+                consume(); // elemento 2
                 continue;
             }
             emit(Token::get_type(l), std::string{l});
@@ -61,6 +63,7 @@ void Lexer::scanNumbers() {
 
 void Lexer::scanName() {
     std::string value;
+    bool open_paren = false;
 
     while (isalpha(peek()) || isdigit(peek())) {
         value += consume();

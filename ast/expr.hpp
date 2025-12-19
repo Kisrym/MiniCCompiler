@@ -24,19 +24,19 @@ struct IntExpr : public NumExpr {
 struct DoubleExpr : public NumExpr {
     double value;
 
-    DoubleExpr(const double value) : value(value) {};
+    explicit DoubleExpr(const double value) : value(value) {};
 };
 
 struct BoolExpr : public Expr {
     bool value;
 
-    BoolExpr(const bool value) : value(value) {};
+    explicit BoolExpr(const bool value) : value(value) {};
 };
 
 struct StringExpr : public Expr {
     std::string value;
 
-    StringExpr(std::string value) : value(std::move(value)) {};
+    explicit StringExpr(std::string value) : value(std::move(value)) {};
 };
 
 struct VarExpr : public Expr {
@@ -44,7 +44,7 @@ struct VarExpr : public Expr {
     TokenType inferredType;
     Symbol *symbol;
 
-    VarExpr(std::string value) : value(std::move(value)) {};
+    explicit VarExpr(std::string value) : value(std::move(value)) {};
 };
 
 // "==" "+" "-", ...
@@ -56,7 +56,7 @@ struct BinaryExpr : public Expr {
 
     //friend std::ostream& operator<<(std::ostream &os, const BinaryExpr &expr);
 
-    BinaryExpr(Expr *value1, Expr *value2, Token op)
+    explicit BinaryExpr(Expr *value1, Expr *value2, Token op)
         : value1(value1), value2(value2), op(op)
     {};
 
@@ -72,7 +72,7 @@ struct UnaryExpr : public Expr {
     Token op;
     TokenType inferredType;
 
-    UnaryExpr(Expr *value1, Token op)
+    explicit UnaryExpr(Expr *value1, Token op)
         : value1(value1), op(std::move(op)) {}
 
     ~UnaryExpr() override {

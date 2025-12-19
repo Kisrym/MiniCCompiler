@@ -44,6 +44,10 @@ TokenType SemanticAnalyzer::analyze(Expr *expr) {
         return BOOL;
     }
 
+    if (const auto _ = dynamic_cast<StringExpr *>(expr)) {
+        return STRING;
+    }
+
     if (const auto expression = dynamic_cast<BinaryExpr *>(expr)) {
         const TokenType type_v1 = analyze(expression->value1);
         const TokenType type_v2 = analyze(expression->value2);
@@ -209,6 +213,42 @@ Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
         }
 
         scopes.pop_back();
+        return statement;
+    }
+
+    if (const auto statement = dynamic_cast<FuncStmt *>(stmt)) {
+        SymbolTable symbol_table;
+        scopes.push_back(symbol_table);
+
+        for (const auto &param : statement->parameters) {
+            analyze(param);
+        }
+
+        const RetStmt *return_stmt = nullptr;
+        for (const auto &body : statement->body) {
+            if ((return_stmt = dynamic_cast<RetStmt *>(analyze(body)))) {
+                if (return_stmt->inferredType != statement->type.type) {
+                    throw std::runtime_error("Incorret return value type.");
+                }
+            }
+        }
+
+        // se não tiver retorno e a função não for void, solta erro
+        if (!return_stmt && statement->type.type != VOID) {
+            throw std::runtime_error("Function does not have a return value.");
+        }
+
+        // se o retorno tiver uma expressão, mas o tipo for void, retorna erro
+        if (return_stmt && return_stmt->expression && statement->type.type == VOID) {
+            throw std::runtime_error("Returning a value in a void function.");
+        }
+
+        scopes.pop_back();
+        return statement;
+    }
+
+    if (const auto statement = dynamic_cast<RetStmt *>(stmt)) {
+        statement->inferredType = analyze(statement->expression);
         return statement;
     }
 

@@ -1,18 +1,18 @@
 #include "parser.hpp"
 
 std::optional<Token> Parser::current() {
-    if (pos < actual_instruction.size())
-        return actual_instruction[pos];
+    if (pos < code.size())
+        return code[pos];
 
     return std::nullopt;
 }
 
 Token Parser::consume() {
-    return actual_instruction[pos++];
+    return code[pos++];
 }
 
 bool Parser::match(const TokenType type) const {
-    return (pos < actual_instruction.size() && actual_instruction[pos].type == type);
+    return (pos < code.size() && code[pos].type == type);
 }
 
 Expr *Parser::parseFactor() {
@@ -85,19 +85,41 @@ Expr *Parser::parseExpression() {
 }
 
 Stmt *Parser::parseStatement() {
-    // VAR DECL
+    // se acabou os statements
+    if (!current().has_value()) {
+        return nullptr;
+    }
+
     const Token first = consume(); // pode ser ou o tipo ou o nome
 
-    if (first.type == INT || first.type == DOUBLE || first.type == STRING || first.type == BOOL) {
+    if (first.type == RETURN) {
+        Expr *expression = parseExpression();
+        consume(); // ;
+        return new RetStmt(expression);
+    }
+
+    if (first.type == INT || first.type == DOUBLE || first.type == STRING || first.type == BOOL || first.type == VOID) {
         const Token id = consume();
+
+        if (current().has_value() && current().value().type == PAREN1) {
+            return parseFunction(first, id);
+        }
 
         // será inicializado com 0 padrão
         if (current().has_value() && current().value().type != ASSIGN) {
+            if (first.type == STRING) return new VarDeclStmt(first, id.value, new StringExpr(""));
+            if (first.type == DOUBLE) return new VarDeclStmt(first, id.value, new DoubleExpr(0.0));
+            if (first.type == BOOL) return new VarDeclStmt(first, id.value, new BoolExpr(false));
+
+            consume(); // ; ou )
+
             return new VarDeclStmt(first, id.value, new IntExpr(0));
         }
         consume(); // =
+        Expr *expression = parseExpression();
+        consume(); // ;
 
-        return new VarDeclStmt(first, id.value, parseExpression());
+        return new VarDeclStmt(first, id.value, expression);
     }
 
     if (first.type == IF) {
@@ -111,7 +133,6 @@ Stmt *Parser::parseStatement() {
 
         while (current().has_value() && current()->type != BRACES2) {
             thenBranches.push_back(parseStatement());
-            consume(); // ;
         }
 
         consume(); // }
@@ -122,27 +143,9 @@ Stmt *Parser::parseStatement() {
 
             while (current().has_value() && current()->type != BRACES2) {
                 elseBranches.push_back(parseStatement());
-                consume(); // ;
             }
 
             consume(); // }
-        }
-
-        else { // CORRIGIR ESSA PARTE DEPOIS: MODIFICAR MELHOR O LEXER
-            next_instruction(); // agora é tratado o else
-
-            if (current().has_value() && current()->type == ELSE) {
-                consume();
-                consume();
-
-                while (current().has_value() && current()->type != BRACES2) {
-                    elseBranches.push_back(parseStatement());
-                    consume(); // ;
-                }
-                consume(); // }
-            }
-
-            else previous_instruction(); // se a instrução atual não for um else, o if não tem um else linkado
         }
 
         return new IfStmt(condition, thenBranches, elseBranches);
@@ -176,10 +179,7 @@ Stmt *Parser::parseStatement() {
         std::vector<Stmt *> statements;
         while (current().has_value() && current()->type != BRACES2) {
             statements.push_back(parseStatement());
-            if (current().has_value() && current()->type == SEMI) {
-                consume(); // em alguns casos, o próprio parseStatement vai tratar code blocks, nesse caso,
-            }
-
+            consume(); // ;
         }
 
         return new ForStmt(definition, condition, increment, statements);
@@ -189,7 +189,27 @@ Stmt *Parser::parseStatement() {
         throw std::runtime_error("Illegal instruction: no 'if' linked.");
     }
 
-    consume();
+    consume(); // =
+    Expr *expression = parseExpression();
+    consume(); // ;
 
-    return new AssignStmt(first.value, parseExpression());
+    return new AssignStmt(first.value, expression);
+}
+
+Stmt *Parser::parseFunction(const Token &type, const Token &id) {
+    std::vector<Stmt *> parameters;
+    std::vector<Stmt *> body;
+
+    consume(); // (
+    while (current().has_value() && current()->type != BRACES1) {
+        parameters.push_back(parseStatement());
+    }
+
+    consume(); // {
+    while (current().has_value() && current()->type != BRACES2) {
+        body.push_back(parseStatement());
+    }
+    consume(); // }
+
+    return new FuncStmt(type, id.value, parameters, body);
 }

@@ -29,6 +29,11 @@ struct Symbol {
                 *current_offset -= FLOAT_SIZE_BYTES;
                 break;
             }
+            case STRING: {
+                stackOffset = *current_offset - STRING_SIZE_BYTES;
+                *current_offset -= STRING_SIZE_BYTES;
+                break;
+            }
             default: {
                 stackOffset = *current_offset - 1;
                 *current_offset -= 1;
