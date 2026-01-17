@@ -75,6 +75,30 @@ Expr *Parser::parseTerm(){
 Expr *Parser::parseExpression() {
     Expr *left = parseTerm();
 
+    // CHAMADA DE FUNÇÃO COMO EXPRESSÃO
+    if (current().has_value() && current().value().type == PAREN1) {
+        consume(); // (
+        auto function = dynamic_cast<VarExpr *>(left);
+
+        for (const auto &f : functions) {
+            if (function->value == f.definition->id) { // achou a funcao pelo nome
+                std::vector<Expr *> parameters;
+
+                while (current().has_value() && current().value().type != PAREN2) {
+                    Expr *s = parseExpression();
+                    if (current().has_value() && current().value().type == COMMA) consume(); // tira as virgulas entre as expressões
+                    parameters.push_back(s);
+                }
+                consume(); // )
+
+                // ERRADO: PEGAR OS PARAMETROS UTILIZADOS NA CHAMADA
+                return new FuncCallExpr(f.definition, parameters);
+            }
+        }
+
+        throw std::runtime_error("Function not defined.");
+    }
+
     while (match(PLUS) || match(MINUS) || match(OR) || match(AND)) {
         Token op = consume();
         Expr *right = parseTerm();
@@ -169,19 +193,20 @@ Stmt *Parser::parseStatement() {
     if (first.type == FOR) {
         consume(); // (
         Stmt *definition = parseStatement();
-        consume(); // ,
+        //consume(); // ,
         Expr *condition = parseExpression();
         consume(); // ,
         auto *increment =  dynamic_cast<AssignStmt *>(parseStatement());
-        consume(); // )
+        //consume(); // )
         consume(); // {
 
         std::vector<Stmt *> statements;
         while (current().has_value() && current()->type != BRACES2) {
             statements.push_back(parseStatement());
-            consume(); // ;
+            //consume(); // ;
         }
 
+        consume(); // }
         return new ForStmt(definition, condition, increment, statements);
     }
 
@@ -189,20 +214,45 @@ Stmt *Parser::parseStatement() {
         throw std::runtime_error("Illegal instruction: no 'if' linked.");
     }
 
-    consume(); // =
-    Expr *expression = parseExpression();
-    consume(); // ;
+    //consume(); // = ou (
 
-    return new AssignStmt(first.value, expression);
+    if (current().has_value() && consume().type != PAREN1) { ///////
+        //consume(); // =
+        Expr *expression = parseExpression();
+        consume(); // ;
+
+        return new AssignStmt(first.value, expression);
+    }
+
+    // CHAMADA DE FUNÇÃO
+
+    for (const auto &f : functions) {
+        if (first.value == f.definition->id) { // achou a funcao pelo nome
+            std::vector<Expr *> parameters;
+
+            while (current().has_value() && current().value().type != PAREN2) {
+                Expr *s = parseExpression();
+                if (current().has_value() && current().value().type == COMMA) consume(); // tira as virgulas entre as expressões
+                parameters.push_back(s);
+            }
+            consume(); // )
+            consume(); // ;
+
+            // ERRADO: PEGAR OS PARAMETROS UTILIZADOS NA CHAMADA
+            return new FuncCallStmt(f.definition, parameters);
+        }
+    }
+
+    throw std::runtime_error("Function not defined.");
 }
 
 Stmt *Parser::parseFunction(const Token &type, const Token &id) {
-    std::vector<Stmt *> parameters;
+    std::vector<VarDeclStmt *> parameters;
     std::vector<Stmt *> body;
 
     consume(); // (
     while (current().has_value() && current()->type != BRACES1) {
-        parameters.push_back(parseStatement());
+        parameters.push_back(dynamic_cast<VarDeclStmt *>(parseStatement()));
     }
 
     consume(); // {
@@ -211,5 +261,8 @@ Stmt *Parser::parseFunction(const Token &type, const Token &id) {
     }
     consume(); // }
 
-    return new FuncStmt(type, id.value, parameters, body);
+    auto *ff = new FuncDefStmt(type, id.value, parameters, body);
+    functions.emplace_back(type.type, ff);
+
+    return ff;
 }

@@ -1,7 +1,5 @@
-#ifndef __AST_NODE_H__
-#define __AST_NODE_H__
-
-#include "token.hpp"
+#ifndef AST_NODE_H_
+#define AST_NODE_H_
 
 class ASTNode {
 public:

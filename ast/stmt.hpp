@@ -9,6 +9,7 @@
 
 class Stmt : public ASTNode {
 public:
+    Token type;
     virtual ~Stmt() = default;
 };
 
@@ -78,13 +79,14 @@ struct WhileStmt : public Stmt {
     {};
 };
 
-struct FuncStmt : public Stmt {
+struct FuncDefStmt : public Stmt {
     Token type;
     std::string id;
-    std::vector<Stmt *> parameters;
+    std::vector<VarDeclStmt *> parameters;
     std::vector<Stmt *> body;
+    int FRAMESIZE = 0;
 
-    explicit FuncStmt(Token type, std::string id, std::vector<Stmt *> parameters, std::vector<Stmt *> body)
+    explicit FuncDefStmt(Token type, std::string id, std::vector<VarDeclStmt *> parameters, std::vector<Stmt *> body)
         : type(std::move(type)), id(std::move(id)), parameters(std::move(parameters)), body(std::move(body))
     {}
 };
@@ -96,6 +98,15 @@ struct RetStmt : public Stmt {
     explicit RetStmt(Expr *expression)
         : expression(expression)
     {};
+};
+
+struct FuncCallStmt : public Stmt {
+    FuncDefStmt *definition;
+    std::vector<Expr *> arguments;
+
+    FuncCallStmt(FuncDefStmt *definition, std::vector<Expr *> parameters)
+        : definition(definition), arguments(std::move(parameters))
+    {}
 };
 
 #endif

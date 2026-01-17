@@ -7,6 +7,11 @@
 #include "semantic_analyzer.hpp"
 #include "stmt.hpp"
 
+struct Value {
+    ValueKind kind;
+    int index; // index do registrador ou offset da stack
+};
+
 class CodeGenerator {
     Parser *parser;
     SemanticAnalyzer *analyzer;
@@ -15,16 +20,18 @@ class CodeGenerator {
     Stmt *current_instruction;
     std::vector<std::string> generated_code;
 
-    int FRAME_SIZE;
+    int FRAME_SIZE = 0;
 
-    int currentStackOffset;
-    int pos;
+    int currentStackOffset = 0;
+    int pos = 0;
     std::string text_bff;
     std::string data_bff;
+    std::string functions_bff; // vao ficar no final do .text
 
-    unsigned int t_register;
-    unsigned int t_string;
-    unsigned int labels;
+    int t_register = 0;
+    int arg_regs = 0;
+    unsigned int l_string = 0;
+    unsigned int labels = 0;
     std::stack<TokenType> op_stack;
 
     bool next_instruction() {
@@ -40,25 +47,42 @@ class CodeGenerator {
     std::string genIfStmt(const IfStmt *statement);
     std::string genForStmt(const ForStmt *statement);
     std::string genWhileStmt(const WhileStmt *statement);
+    std::string genFuncDefStmt(const FuncDefStmt *statement);
+    std::string genFuncCallStmt(const FuncCallStmt *statement);
+    std::string genRetStmt(const RetStmt *statement);
 
     // expressions
-    unsigned int genExpr(Expr *expression);
-    unsigned int genExpr(Expr *expression, const std::string &label_else, const std::string &label_if);
+    Value genExpr(Expr *expression);
+    Value genExpr(Expr *expression, const std::string &label_else, const std::string &label_if);
 
-    unsigned int genLiteral(const IntExpr *expr);
-    unsigned int genVarExpr(const VarExpr *expr);
-    unsigned int genBoolExpr(const BoolExpr *expr);
-    unsigned int genBinaryExpr(const BinaryExpr *expr);
-    unsigned int genBinaryExpr(const BinaryExpr *expr, const std::string &label_else, const std::string &label_if);
-    unsigned int genUnaryExpr(const UnaryExpr *expr);
-    unsigned int genStringExpr(const StringExpr *expr);
+    Value genLiteral(const IntExpr *expr);
+    Value genVarExpr(const VarExpr *expr);
+    Value genBoolExpr(const BoolExpr *expr);
+    Value genBinaryExpr(const BinaryExpr *expr);
+    Value genBinaryExpr(const BinaryExpr *expr, const std::string &label_else, const std::string &label_if);
+    Value genUnaryExpr(const UnaryExpr *expr);
+    Value genStringExpr(const StringExpr *expr);
+    Value genFuncCallExpr(const FuncCallExpr *expr);
 
     // util
-    static std::string get_reg_name(const unsigned int reg) {
-        if (reg == 100) return "zero";
-        if (reg > 6) return "OVERFLOW";
-        return {'t', static_cast<char>(reg + '0')};
+    static std::string get_reg_name(const Value &value) {
+        if (value.kind == ZERO) return "zero";
+
+        if (value.kind == TEMP_REG || value.kind == STACK) {
+            if (value.index > 6) return "OVERFLOW";
+            return {'t', static_cast<char>(value.index + '0')};
+        }
+
+        if (value.kind == ARG_REG) {
+            if (value.index > 7) return "OVERFLOW";
+            return {'a', static_cast<char>(value.index + '0')};
+        }
+
+        return "INVALID KIND";
     }
+
+    std::string load(const Value &v, bool is_arg_reg = false);
+
 public:
     CodeGenerator(Parser *parser, SemanticAnalyzer *semanticAnalyzer);
 

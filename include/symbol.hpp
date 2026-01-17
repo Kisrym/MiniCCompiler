@@ -2,10 +2,22 @@
 #define MINICCOMPILER_SYMBOL_HPP
 
 #include "constraints.hpp"
+#include "stmt.hpp"
+#include "token.hpp"
+
+struct FuncDefStmt;
+
+enum ValueKind { // tipos de "registradores" que estao armazenados os dados
+    TEMP_REG,
+    ARG_REG,
+    STACK,
+    ZERO
+};
 
 struct Symbol {
-    TokenType type;
-    int stackOffset;
+    TokenType type = UNKNOWN;
+    int stackOffset = 0;
+    ValueKind location = TEMP_REG;
 
     Symbol() = default;
     Symbol(const TokenType type, const int offset)
@@ -41,6 +53,16 @@ struct Symbol {
             }
         }
     }
+};
+
+struct FunctionSymbol {
+    TokenType type;
+    FuncDefStmt *definition;
+
+    FunctionSymbol() = default;
+    FunctionSymbol(const TokenType type, FuncDefStmt *definition)
+        : type(type), definition(definition)
+    {}
 };
 
 #endif //MINICCOMPILER_SYMBOL_HPP

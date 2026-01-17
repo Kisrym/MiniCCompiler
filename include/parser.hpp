@@ -16,9 +16,9 @@ enum StatementType {
 class Parser {
 private:
     std::vector<Token> code;
-
-    //std::size_t pc;     // conta a instrução atual
     std::size_t pos;    // conta o token atual
+
+    std::vector<FunctionSymbol> functions;
 
     std::optional<Token> current();
     Token consume();
@@ -29,6 +29,7 @@ private:
     Expr *parseFactor();
 
     Stmt *parseFunction(const Token &type, const Token &id);
+    Expr *parseFunction(const Token &id);
 
 public:
     explicit Parser(const std::vector<Token> &code)

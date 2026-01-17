@@ -23,13 +23,14 @@ TokenType SemanticAnalyzer::analyze(Expr *expr) {
 
         for (int i = scopes.size()-1; i >= 0; --i) { // procura no escopo atual e nos acima
             if (scopes[i].contains(id)) {
-                symb = &scopes[i][id];
+                symb = scopes[i][id];
                 //break;
             }
         }
 
+        expression->inferredType = symb->type;
         expression->symbol = symb;
-        return scopes.back()[id].type;
+        return symb->type;
     }
 
     if (const auto _ = dynamic_cast<IntExpr *>(expr)) {
@@ -95,11 +96,24 @@ TokenType SemanticAnalyzer::analyze(Expr *expr) {
         return type_v1;
     }
 
+    if (const auto expression = dynamic_cast<FuncCallExpr *>(expr)) {
+        for (std::size_t i = 0; i < expression->arguments.size(); ++i) {
+            if (analyze(expression->arguments[i]) != expression->definition->type.type) {
+                throw std::runtime_error("Parameter type does not match definition type.");
+            }
+        }
+
+        expression->inferredType = expression->definition->type.type;
+        return expression->inferredType;
+    }
+
     throw std::runtime_error("Invalid expression");
 }
+
 Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
     if (const auto statement = dynamic_cast<VarDeclStmt *>(stmt)) {
-        auto *symbol = new Symbol(statement->type.type, &current_offset);
+        auto *symbol = new Symbol(statement->type.type, &offset.top());
+        symbol->location = STACK;
 
         if (scopes.back().empty()) {
             const TokenType expr_type = analyze(statement->expression);
@@ -118,7 +132,7 @@ Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
             }
 
             statement->symbol = symbol;
-            scopes.back()[statement->id] = *symbol;
+            scopes.back()[statement->id] = symbol;
         }
         else {
             analyze(statement->expression);
@@ -127,7 +141,7 @@ Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
             }
 
             statement->symbol = symbol;
-            scopes.back()[statement->id] = *symbol;
+            scopes.back()[statement->id] = symbol;
         }
 
         return statement;
@@ -144,8 +158,8 @@ Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
 
         for (int i = scopes.size()-1; i >= 0; --i) { // procura no escopo atual e nos acima
             if (scopes[i].contains(statement->id)) {
-                stmt_type = scopes[i][statement->id].type;
-                symb = &scopes[i][statement->id];
+                stmt_type = scopes[i][statement->id]->type;
+                symb = scopes[i][statement->id];
             }
         }
 
@@ -216,9 +230,10 @@ Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
         return statement;
     }
 
-    if (const auto statement = dynamic_cast<FuncStmt *>(stmt)) {
+    if (const auto statement = dynamic_cast<FuncDefStmt *>(stmt)) {
         SymbolTable symbol_table;
         scopes.push_back(symbol_table);
+        offset.push(0); // novos offsets
 
         for (const auto &param : statement->parameters) {
             analyze(param);
@@ -231,6 +246,7 @@ Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
                     throw std::runtime_error("Incorret return value type.");
                 }
             }
+            //analyze(body);
         }
 
         // se não tiver retorno e a função não for void, solta erro
@@ -243,12 +259,25 @@ Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
             throw std::runtime_error("Returning a value in a void function.");
         }
 
+        statement->FRAMESIZE = offset.top(); // serve para criar o prologo e epilogo da funcao
+
         scopes.pop_back();
+        offset.pop();
         return statement;
     }
 
     if (const auto statement = dynamic_cast<RetStmt *>(stmt)) {
         statement->inferredType = analyze(statement->expression);
+        return statement;
+    }
+
+    if (const auto statement = dynamic_cast<FuncCallStmt *>(stmt)) {
+        for (std::size_t i = 0; i < statement->arguments.size(); ++i) {
+            if (analyze(statement->arguments[i]) != statement->definition->type.type) {
+                throw std::runtime_error("Parameter type does not match definition type.");
+            }
+        }
+
         return statement;
     }
 
