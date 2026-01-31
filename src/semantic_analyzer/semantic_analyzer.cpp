@@ -113,7 +113,7 @@ TokenType SemanticAnalyzer::analyze(Expr *expr) {
 Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
     if (const auto statement = dynamic_cast<VarDeclStmt *>(stmt)) {
         auto *symbol = new Symbol(statement->type.type, &offset.top());
-        symbol->location = STACK;
+        symbol->location = Storage::STACK;
 
         if (scopes.back().empty()) {
             const TokenType expr_type = analyze(statement->expression);
@@ -233,23 +233,53 @@ Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
     if (const auto statement = dynamic_cast<FuncDefStmt *>(stmt)) {
         SymbolTable symbol_table;
         scopes.push_back(symbol_table);
-        offset.push(0); // novos offsets
+        offset.push(4); // novos offsets
+        // começa em 4 porque armazena o ra e o fp no começo
 
         for (const auto &param : statement->parameters) {
             analyze(param);
         }
 
         const RetStmt *return_stmt = nullptr;
+        const IfStmt *if_stmt = nullptr;
         for (const auto &body : statement->body) {
-            if ((return_stmt = dynamic_cast<RetStmt *>(analyze(body)))) {
+            Stmt *analyzed_stmt = analyze(body);
+
+            if ((return_stmt = dynamic_cast<RetStmt *>(analyzed_stmt))) {
                 if (return_stmt->inferredType != statement->type.type) {
                     throw std::runtime_error("Incorret return value type.");
+                }
+            }
+
+            if ((if_stmt = dynamic_cast<IfStmt *>(analyzed_stmt))) {
+                for (const auto &elsee : if_stmt->elseBranches) {
+                    if ((return_stmt = dynamic_cast<RetStmt *>(analyze(elsee)))) {
+                        if (return_stmt->inferredType != statement->type.type) {
+                            throw std::runtime_error("Incorret return value type.");
+                        }
+                    }
                 }
             }
             //analyze(body);
         }
 
         // se não tiver retorno e a função não for void, solta erro
+
+       /* BUG QUANDO O RETURN ESTÁ EM UM IF
+        * por ora, o compilador não identifica um return dentro de uma estrutura if-else, é como se ele estivesse
+        * protegendo a função de um retorno falso, que não existe
+        *
+        *
+        int teste(int x) {
+             if (x > 10) {
+                 return quadrado(x);
+             } else {
+                 return soma(x, 10);
+             }
+             return 0;
+         }
+        *
+        */
         if (!return_stmt && statement->type.type != VOID) {
             throw std::runtime_error("Function does not have a return value.");
         }
@@ -259,7 +289,7 @@ Stmt *SemanticAnalyzer::analyze(Stmt *stmt) {
             throw std::runtime_error("Returning a value in a void function.");
         }
 
-        statement->FRAMESIZE = offset.top(); // serve para criar o prologo e epilogo da funcao
+        statement->FRAMESIZE = -offset.top(); // serve para criar o prologo e epilogo da funcao
 
         scopes.pop_back();
         offset.pop();

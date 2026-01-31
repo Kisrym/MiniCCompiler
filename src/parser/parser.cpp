@@ -184,9 +184,10 @@ Stmt *Parser::parseStatement() {
         std::vector<Stmt *> whileBranches;
         while (current().has_value() && current()->type != BRACES2) {
             whileBranches.push_back(parseStatement());
-            consume(); // ;
+            //consume(); // ;
         }
 
+        consume(); // }
         return new WhileStmt(condition, whileBranches);
     }
 

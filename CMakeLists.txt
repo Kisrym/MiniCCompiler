@@ -15,6 +15,11 @@ set(SOURCES
         src/codegenerator/codegenerator.cpp
         src/lexer/lexer.cpp
         include/lexer.hpp
+        include/value.hpp
+        src/codegenerator/registerpool.hpp
+        src/codegenerator/registerpool.cpp
+        src/codegenerator/tempreg.hpp
+        src/codegenerator/argreg.hpp
 )
 
 add_executable(main ${SOURCES})

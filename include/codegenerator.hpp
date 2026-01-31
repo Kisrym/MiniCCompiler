@@ -6,11 +6,16 @@
 #include "parser.hpp"
 #include "semantic_analyzer.hpp"
 #include "stmt.hpp"
+#include "value.hpp"
+#include "../src/codegenerator/registerpool.hpp"
 
-struct Value {
-    ValueKind kind;
-    int index; // index do registrador ou offset da stack
-};
+/*
+ * LEMBRETE: adicioar uma nova função a fim de evitar manipulação direta da string "text" ou "data". Funcionaria como
+ *
+ * emit("mv a0, t0")
+ *
+ * ou algo assim
+ */
 
 class CodeGenerator {
     Parser *parser;
@@ -28,8 +33,8 @@ class CodeGenerator {
     std::string data_bff;
     std::string functions_bff; // vao ficar no final do .text
 
-    int t_register = 0;
-    int arg_regs = 0;
+    RegisterPool temps_pool;
+    RegisterPool args_pool;
     unsigned int l_string = 0;
     unsigned int labels = 0;
     std::stack<TokenType> op_stack;
@@ -52,36 +57,20 @@ class CodeGenerator {
     std::string genRetStmt(const RetStmt *statement);
 
     // expressions
-    Value genExpr(Expr *expression);
-    Value genExpr(Expr *expression, const std::string &label_else, const std::string &label_if);
+    value genExpr(Expr *expression);
+    value genExpr(Expr *expression, const std::string &label_else, const std::string &label_if);
 
-    Value genLiteral(const IntExpr *expr);
-    Value genVarExpr(const VarExpr *expr);
-    Value genBoolExpr(const BoolExpr *expr);
-    Value genBinaryExpr(const BinaryExpr *expr);
-    Value genBinaryExpr(const BinaryExpr *expr, const std::string &label_else, const std::string &label_if);
-    Value genUnaryExpr(const UnaryExpr *expr);
-    Value genStringExpr(const StringExpr *expr);
-    Value genFuncCallExpr(const FuncCallExpr *expr);
+    value genLiteral(const IntExpr *expr);
+    value genVarExpr(const VarExpr *expr);
+    value genBoolExpr(const BoolExpr *expr);
+    value genBinaryExpr(const BinaryExpr *expr);
+    value genBinaryExpr(const BinaryExpr *expr, const std::string &label_else, const std::string &label_if);
+    value genUnaryExpr(const UnaryExpr *expr);
+    value genStringExpr(const StringExpr *expr);
+    value genFuncCallExpr(const FuncCallExpr *expr);
 
-    // util
-    static std::string get_reg_name(const Value &value) {
-        if (value.kind == ZERO) return "zero";
 
-        if (value.kind == TEMP_REG || value.kind == STACK) {
-            if (value.index > 6) return "OVERFLOW";
-            return {'t', static_cast<char>(value.index + '0')};
-        }
-
-        if (value.kind == ARG_REG) {
-            if (value.index > 7) return "OVERFLOW";
-            return {'a', static_cast<char>(value.index + '0')};
-        }
-
-        return "INVALID KIND";
-    }
-
-    std::string load(const Value &v, bool is_arg_reg = false);
+    std::string load(const value &v);
 
 public:
     CodeGenerator(Parser *parser, SemanticAnalyzer *semanticAnalyzer);

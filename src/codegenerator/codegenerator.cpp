@@ -1,26 +1,29 @@
 #include "codegenerator.hpp"
 
-CodeGenerator::CodeGenerator(Parser *parser, SemanticAnalyzer *semanticAnalyzer)
-    : parser(parser), analyzer(semanticAnalyzer)
-{
+#include "argreg.hpp"
+#include "tempreg.hpp"
 
-    while (Stmt *current_statement = parser->parseStatement()){
-        instructions.push_back(analyzer->analyze(current_statement)); // armazena as instruções com as anotações do semantic analyzer
+CodeGenerator::CodeGenerator(Parser *parser, SemanticAnalyzer *semanticAnalyzer)
+    : parser(parser), analyzer(semanticAnalyzer), temps_pool(RegisterPool(7, "t")), args_pool(RegisterPool(8, "a")) {
+    while (Stmt *current_statement = parser->parseStatement()) {
+        instructions.push_back(analyzer->analyze(current_statement));
+        // armazena as instruções com as anotações do semantic analyzer
     }
 
     current_instruction = instructions[0];
-    FRAME_SIZE = analyzer->get_current_offset() - 4;
+    FRAME_SIZE = analyzer->get_current_offset(); - 4;
 }
 
 std::vector<std::string> CodeGenerator::generateCode() {
     // settar o prologo do programa (configuração de sp e fp)
-    const std::string fs_str = std::to_string(FRAME_SIZE);
-    const std::string fs4_str = std::to_string(4);
+    int FRAMESIZE = 16 * (((FRAME_SIZE) + 15) / 16);
+    const std::string fs_str = std::to_string(-FRAMESIZE);
+    const std::string fs4_str = std::to_string(FRAMESIZE - 16);
 
     data_bff.append(".data\n");
 
     generated_code.emplace_back(".text\n");
-    generated_code.push_back("\taddi sp, sp, " + fs_str + "\n\tsw fp, " + fs4_str + "(sp)\n\tadd fp, zero, sp\n\n");
+    generated_code.push_back("\taddi sp, sp, " + fs_str + "\n\tsw fp, " + fs4_str + "(sp)""\n\tmv fp, sp" + "\n\n");
 
     for (Stmt *stmt : instructions) {
         genStmt(stmt);
@@ -28,7 +31,7 @@ std::vector<std::string> CodeGenerator::generateCode() {
         text_bff.clear();
     }
 
-    generated_code.push_back("\n\tadd sp, zero, fp\n\tlw fp, " + fs4_str + "(sp)\n\taddi sp, sp, " + fs_str.substr(1) + "\n");
+    generated_code.push_back("\n\tlw fp, " + fs4_str + "(sp)\n\taddi sp, sp, " + fs_str.substr(1) + "\n");
     generated_code.emplace_back("\tli a7, 10\n\tecall\n"); // exit program rars
 
     generated_code.push_back(functions_bff);
@@ -37,24 +40,21 @@ std::vector<std::string> CodeGenerator::generateCode() {
 
     return generated_code;
 }
-
-std::string CodeGenerator::load(const Value &v, bool is_arg_reg) {
-    if (v.kind == STACK) {
-        auto valor = (is_arg_reg) ? Value{ARG_REG, arg_regs} : Value{TEMP_REG, t_register};
-        return "lw " + get_reg_name(valor) + ", " + std::to_string(v.index) + "(fp)";
-    }
-
-    if (v.kind == ARG_REG) {
-        //return "mv " + get_reg_name(Value(TEMP_REG, t_register)) + ", a" + std::to_string(v.index);
-        return "mv " + get_reg_name(Value(ARG_REG, arg_regs)) + ", a" + std::to_string(v.index);
+/*
+std::string CodeGenerator::load(const value &v) {
+    const TempReg reg(temps_pool);
+    if (v.storage == Storage::STACK) {
+        return "lw " + temps_pool.name(reg.r) + ", " + std::to_string(v.offset) + "(fp)";
+        //return "AQUI";
     }
 
     // se for temporario
-    return "mv " + get_reg_name(Value(TEMP_REG, t_register)) + ", t" + std::to_string(v.index);
+    //return "mv " + get_reg_name(Value(TEMP_REG, t_register)) + ", t" + std::to_string(v.index);
+    return "mv " + temps_pool.name(reg.r) + ", " + temps_pool.name(v.reg);
 }
-
+*/
 // expressions
-Value CodeGenerator::genExpr(Expr *expression) {
+value CodeGenerator::genExpr(Expr *expression) {
     if (const auto expr = dynamic_cast<IntExpr *>(expression)) {
         return genLiteral(expr); // por enquanto é somente esse
     }
@@ -79,10 +79,10 @@ Value CodeGenerator::genExpr(Expr *expression) {
         return genFuncCallExpr(expr);
     }
 
-    return Value{TEMP_REG, -1};
+    return value{Storage::REGISTER, -1};
 }
 
-Value CodeGenerator::genExpr(Expr *expression, const std::string &label_else, const std::string &label_if) {
+value CodeGenerator::genExpr(Expr *expression, const std::string &label_else, const std::string &label_if) {
     if (const auto expr = dynamic_cast<BinaryExpr *>(expression)) {
         return genBinaryExpr(expr, label_else, label_if);
     }
@@ -90,60 +90,66 @@ Value CodeGenerator::genExpr(Expr *expression, const std::string &label_else, co
     return genExpr(expression);
 }
 
-Value CodeGenerator::genLiteral(const IntExpr *expr) {
-    const Value v(TEMP_REG, t_register);
+value CodeGenerator::genLiteral(const IntExpr *expr) {
+    const TempReg reg(temps_pool);
+    const value v(Storage::REGISTER, reg.r);
 
-    text_bff += "\tli " + get_reg_name(v) + ", " + std::to_string(expr->value) + "\n";
-    t_register++;
+    text_bff += "\tli " + temps_pool.name(reg.r) + ", " + std::to_string(expr->value) + "\n";
 
     return v;
 }
 
-Value CodeGenerator::genBoolExpr(const BoolExpr *expr) {
-    const Value v(TEMP_REG, t_register);
+value CodeGenerator::genBoolExpr(const BoolExpr *expr) {
+    const TempReg reg(temps_pool);
+    const value v(Storage::REGISTER, reg.r);
 
     if (const unsigned int conversion = expr->value) {
-        text_bff += "\tli " + get_reg_name(v) + ", " + std::to_string(conversion) + "\n";
-        t_register++;
+        text_bff += "\tli " + temps_pool.name(reg.r) + ", " + std::to_string(conversion) + "\n";
 
         return v;
     }
 
-    return Value{ZERO, 100}; // vale x0 (zero)
+    return value{Storage::REGISTER, -999}; // vale x0 (zero)
 }
 
-Value CodeGenerator::genStringExpr(const StringExpr *expr) {
-    const Value v(TEMP_REG, t_register);
+value CodeGenerator::genStringExpr(const StringExpr *expr) {
+    const TempReg reg(temps_pool);
+    const value v(Storage::REGISTER, reg.r);
     const std::string string_label("STRING" + std::to_string(l_string));
 
     data_bff.append("\t"+ string_label + ": .asciz " + "\"" + expr->value +"\"\n");
-    text_bff.append("\tla " + get_reg_name(v) + ", " + string_label + "\n");
+    text_bff.append("\tla " + temps_pool.name(reg.r) + ", " + string_label + "\n");
 
-    t_register++;
     l_string++;
 
     return v;
 }
 
-Value CodeGenerator::genVarExpr(const VarExpr *expr) {
-    int *tmp = nullptr;
+value CodeGenerator::genVarExpr(const VarExpr *expr) {
+    //if (expr->symbol->location == ARG_REG) {
+    //    return Value{ARG_REG, arg_regs++};
+    //}
 
-    if (expr->symbol->location == ARG_REG) {
-        return Value{ARG_REG, arg_regs++};
-    }
+    const TempReg reg(temps_pool);
+    const auto v = value{expr->symbol->location, reg.r};
 
-    const auto v = Value{expr->symbol->location, t_register++};
-
-    text_bff += "\tlw " + get_reg_name(v) + ", " + std::to_string(expr->symbol->stackOffset) + "(fp)\n";
-    //t_register++;
+    text_bff += "\tlw " + temps_pool.name(reg.r) + ", " + std::to_string(expr->symbol->stackOffset) + "(fp)\n";
 
     return v;
 }
 
-Value CodeGenerator::genBinaryExpr(const BinaryExpr *expr) {
-    const Value left = genExpr(expr->value1);
-    const Value right = genExpr(expr->value2);
+value CodeGenerator::genBinaryExpr(const BinaryExpr *expr) {
+    const TempReg leftReg(temps_pool);
+    const TempReg rightReg(temps_pool);
 
+    const value left  = genExpr(expr->value1);
+    text_bff += "\tmv " + temps_pool.name(leftReg.r) + ", " + temps_pool.name(left.reg) + "\n";
+
+    const value right = genExpr(expr->value2);
+    text_bff += "\tmv " + temps_pool.name(rightReg.r) + ", " + temps_pool.name(right.reg) + "\n";
+
+    const std::string rd = temps_pool.name(leftReg.r);
+    const std::string rs = temps_pool.name(rightReg.r);
     const TokenType op = expr->op.type;
 
     std::string command;
@@ -189,10 +195,8 @@ Value CodeGenerator::genBinaryExpr(const BinaryExpr *expr) {
             command = "";
     }
 
-    const std::string rd = get_reg_name(left);
     if (op == GREATER || op == LE) {
-        text_bff += "\t" + command + rd + ", " + get_reg_name(right) + ", " + rd + "\n"; // inverte a fim de simular comparações de maior que
-        t_register--;
+        text_bff += "\t" + command + rd + ", " + rs + ", " + rd + "\n"; // inverte a fim de simular comparações de maior que
 
         if (op == LE) {
             text_bff += "\txori " + rd + ", " + rd + ", 1\n";
@@ -200,9 +204,7 @@ Value CodeGenerator::genBinaryExpr(const BinaryExpr *expr) {
     }
 
     else {
-        text_bff += "\t" + command + rd + ", " + rd + ", " + get_reg_name(right) + "\n";
-        if (right.kind == ARG_REG) arg_regs--; // libera o registrador
-        else t_register--;
+        text_bff += "\t" + command + rd + ", " + rd + ", " + rs + "\n";
 
         if (op == EQUAL) {
             text_bff += "\tsltiu " + rd + ", " + rd + ", 1\n"; // (xor x, y == 0) ? x == y : x != y. basicamente, essa instrução verifica isso
@@ -212,15 +214,24 @@ Value CodeGenerator::genBinaryExpr(const BinaryExpr *expr) {
         }
     }
 
-    return left;
+    return value{Storage::REGISTER, leftReg.r};
 }
 
-Value CodeGenerator::genBinaryExpr(const BinaryExpr *expr, const std::string &label_else, const std::string &label_if) {
+value CodeGenerator::genBinaryExpr(const BinaryExpr *expr, const std::string &label_else, const std::string &label_if) {
     if (expr->op.type == AND || expr->op.type == OR) {
         op_stack.push(expr->op.type);
     }
-    const Value left = genExpr(expr->value1, label_else, label_if);
-    const Value right = genExpr(expr->value2, label_else, label_if);
+    const TempReg leftReg(temps_pool);
+    const TempReg rightReg(temps_pool);
+
+    const value left  = genExpr(expr->value1);
+    text_bff += "\tmv " + temps_pool.name(leftReg.r) + ", " + temps_pool.name(left.reg) + "\n";
+
+    const value right = genExpr(expr->value2);
+    text_bff += "\tmv " + temps_pool.name(rightReg.r) + ", " + temps_pool.name(right.reg) + "\n";
+
+    const std::string rd = temps_pool.name(leftReg.r);
+    const std::string rs = temps_pool.name(rightReg.r);
 
     const TokenType op = expr->op.type;
 
@@ -290,31 +301,27 @@ Value CodeGenerator::genBinaryExpr(const BinaryExpr *expr, const std::string &la
         }
     }
 
-    const std::string rd = get_reg_name(left);
-
     // a forma como serão feitos os saltos simularão o AND e OR
     // se ambos pularem pro ELSE, será um AND, se pularem pro IF, será um OR
     if (!op_stack.empty() && op_stack.top() == OR){
-        text_bff += "\t" + command + get_reg_name(left) + ", " + get_reg_name(right) + ", " + label_if + "\n";
+        text_bff += "\t" + command + rd + ", " + rs + ", " + label_if + "\n";
     }
 
     else if (!command.empty()){
-        text_bff += "\t" + command + get_reg_name(left) + ", " + get_reg_name(right) + ", " + label_else + "\n";
+        text_bff += "\t" + command + rd + ", " + rs + ", " + label_else + "\n";
     }
 
     if (!op_stack.empty())
         op_stack.pop();
 
-    if (right.kind == ARG_REG) arg_regs--; // libera o registrador
-    else t_register--;
-    return left;
+    return value{Storage::REGISTER, left.reg};
 }
 
-Value CodeGenerator::genUnaryExpr(const UnaryExpr *expr) {
+value CodeGenerator::genUnaryExpr(const UnaryExpr *expr) {
     const TokenType op = expr->op.type;
 
-    const Value rd = genExpr(expr->value1);
-    const std::string rd_name = get_reg_name(rd);
+    const value rd = genExpr(expr->value1);
+    const std::string rd_name = temps_pool.name(rd.reg);
 
     if (op == MINUS) {
         text_bff += "\tsub " + rd_name + "zero, " + rd_name + "\n";
@@ -328,19 +335,19 @@ Value CodeGenerator::genUnaryExpr(const UnaryExpr *expr) {
     return rd;
 }
 
-Value CodeGenerator::genFuncCallExpr(const FuncCallExpr *expr) {
+value CodeGenerator::genFuncCallExpr(const FuncCallExpr *expr) {
     for (auto &arg : expr->arguments) {
-        if (const auto *expression = dynamic_cast<VarExpr *>(arg)) {
-            expression->symbol->location = TEMP_REG;
-        }
+        const int arg_reg = args_pool.alloc();
 
-        text_bff += "\tmv " + get_reg_name(Value{ARG_REG, arg_regs++}) + ", " + get_reg_name(genExpr(arg)) + "\n";
-        t_register--;
+        text_bff += "\tmv " + args_pool.name(arg_reg) + ", " + temps_pool.name(genExpr(arg).reg) + "\n";
     }
 
-    text_bff += "\tcall " + expr->definition->id + "\n";
+    args_pool.clear();
 
-    return Value{ARG_REG, 0}; // MODIFICAR TALVEZ PARA RETORNO DE 2 VARIAVEIS (a0, a1) => POSSIVELMENTE NAO
+    const TempReg reg(temps_pool);
+    text_bff += "\tcall " + expr->definition->id + "\n\tmv " + temps_pool.name(reg.r) + ", a0\n";
+
+    return value{Storage::REGISTER, reg.r}; // MODIFICAR TALVEZ PARA RETORNO DE 2 VARIAVEIS (a0, a1) => POSSIVELMENTE NAO
 }
 
 // statements
@@ -386,27 +393,25 @@ std::string CodeGenerator::genVarDecl(const VarDeclStmt *statement) {
     const auto value = genExpr(statement->expression);
 
     //text_bff += "\t" + load(Value{statement->symbol->location, statement->symbol->stackOffset}, value.kind == ARG_REG) + "\n";
-    text_bff += "\tsw " + get_reg_name(value) + ", " + std::to_string(statement->symbol->stackOffset) + "(fp)\n";
-    if (value.kind == ARG_REG) arg_regs--;
-    else t_register--;
+    text_bff += "\tsw " + temps_pool.name(value.reg) + ", " + std::to_string(statement->symbol->stackOffset) + "(fp)\n";
 
     return text_bff;
 }
 
 std::string CodeGenerator::genAssign(const AssignStmt *statement) {
-    const std::string rd = get_reg_name(Value(TEMP_REG, t_register));
+    const TempReg reg(temps_pool);
+    const value v(Storage::REGISTER, reg.r);
+
+    const std::string rd = temps_pool.name(v.reg);
 
     // carrega a variavel pro assign
-    text_bff += "\t" + load(Value{STACK, statement->symbol->stackOffset}) + "\n";
+    //text_bff += "\t" + load(value{Storage::STACK, statement->symbol->stackOffset}) + "\n";
     //text_bff += "\tlw " + get_reg_name(t_register) + ", " + std::to_string(statement->symbol->stackOffset) + "(fp)\n";
-    t_register++; // aloca um reg pra ela
 
-    const std::string rs1 = get_reg_name(genExpr(statement->expression)); // armazena o reg com o resultado da expressão em rs1
-    t_register--;
+    const std::string rs1 = temps_pool.name(genExpr(statement->expression).reg); // armazena o reg com o resultado da expressão em rs1
 
     text_bff += "\tadd " + rd + ", zero, " + rs1 + "\n"; // OTIMIZAÇÃO DPS
     text_bff += "\tsw " + rd + ", " + std::to_string(statement->symbol->stackOffset) + "(fp)\n"; // salva dnv
-    t_register--;
 
     return text_bff;
 }
@@ -476,14 +481,15 @@ std::string CodeGenerator::genFuncDefStmt(const FuncDefStmt *statement) {
     functions_bff += statement->id + ":\n";
 
     int FRAMESIZE = -statement->FRAMESIZE;
-    FRAMESIZE = 16 * (((FRAMESIZE + 4) + 15) / 16); // -4 para armazenar ra e modulo para manter alinhamento de memoria
+    FRAMESIZE = 16 * (((FRAMESIZE + 4) + 15) / 16); // 4 para armazenar ra e modulo para manter alinhamento de memoria
     FRAMESIZE = -FRAMESIZE;
 
-    functions_bff += "\taddi sp, sp, " + std::to_string(FRAMESIZE) + "\n\tsw ra, " + std::to_string(-(FRAMESIZE + 4)) + "(sp)\n\tsw fp, " + std::to_string(-(FRAMESIZE + 8)) + "(sp)\n\tmv fp, sp\n\n";
+    functions_bff += "\taddi sp, sp, " + std::to_string(FRAMESIZE) + "\n\tsw ra, 0(sp)\n\tsw fp, 4(sp)\n\tmv fp, sp" + "\n\n";
 
+    int arg = 0;
     for (auto &p : statement->parameters) {
-        p->symbol->location = ARG_REG;
-        //functions_bff += genStmt(p);
+        p->symbol->location = Storage::STACK;
+        functions_bff += "sw a" + std::to_string(arg++) + ", " + std::to_string(p->symbol->stackOffset) + "(fp)\n";
     }
 
     for (const auto i : statement->body) {
@@ -491,31 +497,29 @@ std::string CodeGenerator::genFuncDefStmt(const FuncDefStmt *statement) {
         text_bff.clear();
     }
 
-    functions_bff += "\tlw ra, " + std::to_string(-(FRAMESIZE + 4)) + "(sp)\n\t" + "lw fp, " + std::to_string(-(FRAMESIZE + 8)) + "(sp)\n\t" + "addi sp, sp, " + std::to_string(-FRAMESIZE) + "\n\tret";
+    functions_bff += "\tlw ra, 0(fp)\n\tlw fp, 4(fp)\n\taddi sp, sp, " + std::to_string(-FRAMESIZE) + "\n\tret";
     functions_bff += "\n";
     return "";
 }
 
 std::string CodeGenerator::genRetStmt(const RetStmt *statement) {
-    const Value rd = genExpr(statement->expression);
+    const value rd = genExpr(statement->expression);
 
     functions_bff += text_bff;
     text_bff.clear();
-    functions_bff += "\tmv a0, " + get_reg_name(rd) + "\n";
-    t_register = 0; ////////
+    functions_bff += "\tmv a0, " + temps_pool.name(rd.reg) + "\n";
 
     return "\n";
 }
 
 std::string CodeGenerator::genFuncCallStmt(const FuncCallStmt *statement) {
     for (auto &arg : statement->arguments) {
-        if (const auto *expr = dynamic_cast<VarExpr *>(arg)) {
-            expr->symbol->location = TEMP_REG;
-        }
+        const int arg_reg = args_pool.alloc();
 
-        text_bff += "\tmv " + get_reg_name(Value{ARG_REG, arg_regs++}) + ", " + get_reg_name(genExpr(arg)) + "\n";
-        t_register--;
+        text_bff += "\tmv " + args_pool.name(arg_reg) + ", " + temps_pool.name(genExpr(arg).reg) + "\n";
     }
+
+    args_pool.clear();
 
     text_bff += "\tcall " + statement->definition->id + "\n";
 
