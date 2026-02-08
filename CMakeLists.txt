@@ -20,6 +20,9 @@ set(SOURCES
         src/codegenerator/registerpool.cpp
         src/codegenerator/tempreg.hpp
         src/codegenerator/argreg.hpp
+        include/irinstr.hpp
+        include/irbuilder.hpp
+        src/irbuilder/irbuilder.cpp
 )
 
 add_executable(main ${SOURCES})
