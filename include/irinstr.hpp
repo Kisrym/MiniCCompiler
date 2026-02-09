@@ -34,6 +34,7 @@ enum class Op {
 
     LABEL,
     JUMP,
+    JUMP_IF_ZERO,
     BRANCH
 };
 

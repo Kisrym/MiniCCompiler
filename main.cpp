@@ -7,6 +7,7 @@
 #include <sstream>
 
 #include "codegenerator.hpp"
+#include "irbuilder.hpp"
 
 std::string readFileIntoString(const std::string& filename) {
     std::ifstream ifs("/home/kaio/Documentos/miniccompiler/" + filename);
@@ -29,12 +30,12 @@ int main() {
 
     SemanticAnalyzer analyzer;
 
-    CodeGenerator gen(&parser, &analyzer);
-    const auto v = gen.generateCode();
+    IRBuilder irbuilder(&parser, &analyzer);
+    const auto a = irbuilder.build();
+    //CodeGenerator gen(&parser, &analyzer);
+    //const auto v = gen.generateCode();
 
-    for (const auto &c : v) {
-        std::cout << c;
-    }
+    irbuilder.printIR(a);
 
     return 0;
 }

@@ -101,7 +101,7 @@ Expr *Parser::parseExpression() {
 
     while (match(PLUS) || match(MINUS) || match(OR) || match(AND)) {
         Token op = consume();
-        Expr *right = parseTerm();
+        Expr *right = parseExpression();
         left = new BinaryExpr(left, right, op);
     }
 
@@ -252,10 +252,11 @@ Stmt *Parser::parseFunction(const Token &type, const Token &id) {
     std::vector<Stmt *> body;
 
     consume(); // (
-    while (current().has_value() && current()->type != BRACES1) {
+    while (current().has_value() && current()->type != BRACES1 && current()->type != PAREN2) {
         parameters.push_back(dynamic_cast<VarDeclStmt *>(parseStatement()));
     }
 
+    if (current()->type == PAREN2) consume(); // ) se for sem parametros
     consume(); // {
     while (current().has_value() && current()->type != BRACES2) {
         body.push_back(parseStatement());

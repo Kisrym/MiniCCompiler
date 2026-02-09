@@ -1,0 +1,29 @@
+int soma(int a, int b) {
+    int r = a + b;
+    return r;
+}
+
+int main() {
+    int x = 2;
+    int y = 3;
+    int z = soma(x, y);
+
+if (z > 4) {
+    z = z + 1;
+} else {
+    z = z - 1;
+}
+
+int i = 0;
+
+while (i < 3) {
+    z = z + i;
+    i = i + 1;
+}
+
+for (int j = 0; j < 2; j = j + 1) {
+    z = z + j;
+}
+
+return z;
+}
